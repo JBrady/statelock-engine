@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 DEFAULT_CONFIG = {
     "project_name": "DefaultProject",
     "memory_ledger_path": "memory_ledger.json",
-    "snapshot_directory": ".neuronbox_snapshots/",
+    "snapshot_directory": ".statelock_snapshots/",
     "audit": {
         "max_total_blocks": 100,
         "max_block_age_days": 30,
@@ -34,7 +34,7 @@ DEFAULT_CONFIG = {
             "__pycache__/",
             "*.pyc",
             ".git/",
-            ".neuronbox_snapshots/",
+            ".statelock_snapshots/",
         ],
     },
 }
@@ -48,7 +48,7 @@ def load_config(config_path):
     """Safely load the YAML configuration file."""
     if not os.path.exists(config_path):
         click.echo(f"Error: Configuration file not found at {config_path}", err=True)
-        click.echo("Please run 'neuronbox init' or provide the correct path.")
+        click.echo("Please run 'statelock init' or provide the correct path.")
         return None
     try:
         with open(config_path, "r") as f:
@@ -68,7 +68,9 @@ def load_ledger(ledger_path):
     """Safely load the JSON memory ledger file."""
     if not os.path.exists(ledger_path):
         click.echo(f"Error: Memory ledger file not found at {ledger_path}", err=True)
-        click.echo(f"Ensure the path in config.yaml is correct or run 'neuronbox init'.")
+        click.echo(
+            f"Ensure the path in config.yaml is correct or run 'statelock init'."
+        )
         return None
     try:
         with open(ledger_path, "r") as f:
@@ -92,19 +94,19 @@ def load_ledger(ledger_path):
 
 @click.group()
 def cli():
-    """NeuronBox: A middleware toolkit for managing LLM/Agent memory, context, and RAG hygiene."""
+    """StateLock Engine: A middleware toolkit for managing LLM/Agent memory, context, and RAG hygiene."""
     pass
 
 
 @cli.command()
 def init():
-    """Initialize NeuronBox config and memory ledger in the current directory."""
+    """Initialize StateLock Engine config and memory ledger in the current directory."""
     config_path = "config.yaml"
     ledger_path = DEFAULT_CONFIG.get(
         "memory_ledger_path", "memory_ledger.json"
     )  # Get path from default
 
-    click.echo("Initializing NeuronBox project...")
+    click.echo("Initializing StateLock Engine project...")
 
     # Create config.yaml if it doesn't exist
     if not os.path.exists(config_path):
@@ -131,7 +133,7 @@ def init():
 
     # Ensure snapshot directory exists (uses path from default config)
     snapshot_dir = DEFAULT_CONFIG.get(
-        "snapshot_directory", ".neuronbox_snapshots/"
+        "snapshot_directory", ".statelock_snapshots/"
     )
     if not os.path.exists(snapshot_dir):
         try:
@@ -240,26 +242,25 @@ def audit(config):
 @click.option(
     "--dry-run",
     is_flag=True,
-    help="Show what would be collapsed without changing anything.",
+    help="Show what would be done without making changes.",
 )
 def collapse(config, dry_run):
     """Collapse or prune memory blocks based on config rules."""
-    # Logic to read config, read ledger, identify blocks, perform collapse/prune
-    mode = "(Dry Run)" if dry_run else ""
-    click.echo(f"Collapsing memory blocks using config: {config} {mode}")
+    click.echo(f"Collapsing memory blocks using config: {config}")
+    if dry_run:
+        click.echo("(Dry Run) No changes will be made.")
     # TODO: Implement collapse logic
     pass
 
 
 @cli.command()
-@click.option(
-    "--name", prompt="Snapshot name", help="A descriptive name for this snapshot."
-)
+@click.option("--message", "-m", default=None, help="Optional message for the snapshot.")
 @click.option("--config", default="config.yaml", help="Path to the configuration file.")
-def snapshot(name, config):
-    """Create a snapshot of the current agent/project state (config, ledger, etc.)."""
-    # Logic to gather state (config, ledger, potentially other specified files) and save it
-    click.echo(f"Creating snapshot '{name}' using config: {config}")
+def snapshot(config, message):
+    """Create a snapshot of the current state (config, ledger, specified files)."""
+    click.echo(f"Creating snapshot using config: {config}")
+    if message:
+        click.echo(f"Snapshot message: {message}")
     # TODO: Implement snapshot logic
     pass
 

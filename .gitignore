@@ -10,4 +10,4 @@ __pycache__/
 *.pyo
 
 # Snapshot directory (if managed locally)
-.neuronbox_snapshots/
+.statelock_snapshots/
