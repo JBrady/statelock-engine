@@ -12,9 +12,10 @@ collapse:
     max_age_days: 20
   selection:
     priority: oldest_creation
-    keep_min_blocks: 10
+    keep_min_blocks: 5
 memory_blocks:
-  required_tags: []
+  required_tags:
+  - core_goal
 snapshots:
   include_patterns:
   - '*.log'
