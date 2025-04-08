@@ -1,6 +1,5 @@
 project_name: DefaultProject
 memory_ledger_path: memory_ledger.json
-snapshot_directory: .neuronbox_snapshots/
 audit:
   max_total_blocks: 100
   max_block_age_days: 30
@@ -17,6 +16,7 @@ memory_blocks:
   required_tags:
   - core_goal
 snapshots:
+  snapshot_directory: .statelock_snapshots/
   include_patterns:
   - '*.log'
   - agent_outputs/
