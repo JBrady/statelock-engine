@@ -1,0 +1,13 @@
+# IDE specific files
+*.code-workspace
+
+# Python virtual environment
+.venv/
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+
+# Snapshot directory (if managed locally)
+.neuronbox_snapshots/
