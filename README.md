@@ -2,6 +2,8 @@
 
 StateLock Engine is a lightweight middleware toolkit designed to enhance memory management, context hygiene, and workflow stability for LLM and agentic applications (e.g., using frameworks like CrewAI, LangChain). It provides tools to audit, manage, and snapshot the state of memory blocks used by AI systems.
 
+In essence, StateLock Engine acts as the structured, persistent, and managed "working memory" layer that sophisticated, long-running AI applications need but which standard LLM context windows and basic databases don't provide effectively.
+
 ## Core Problem Addressed
 
 Long-running LLM workflows often suffer from issues like:
