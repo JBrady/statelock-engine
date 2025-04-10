@@ -72,6 +72,9 @@ class MemoryBlockQueryResult(BaseModel):
 class MemoryBlockQueryResponse(BaseModel):
     results: list[MemoryBlockQueryResult]
 
+class MemoryBlockListItem(BaseModel):
+    id: str
+    name: str | None
 
 # --- API Endpoints --- 
 
@@ -144,7 +147,59 @@ async def query_memory_blocks(query_data: MemoryBlockQuery):
         return MemoryBlockQueryResponse(results=formatted_results)
 
     except Exception as e:
-        print(f"Error querying memory blocks: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
+        # Log the error for debugging
+        print(f"Error during query: {e}") 
+        raise HTTPException(status_code=500, detail="Internal server error during query.")
+
+# --- NEW ENDPOINT --- 
+@app.get("/memory_blocks/", response_model=list[MemoryBlockListItem], tags=["Memory Blocks"])
+async def list_memory_blocks():
+    """Lists all memory blocks currently stored (ID and Name only)."""
+    try:
+        # Get all items, specifically requesting metadata
+        # ChromaDB's get() returns a dict with keys like 'ids', 'embeddings', 'metadatas', etc.
+        results = collection.get(include=['metadatas'])
+        
+        block_list = []
+        ids = results.get('ids', [])
+        metadatas = results.get('metadatas', [])
+
+        # Ensure we have the same number of ids and metadatas
+        if len(ids) != len(metadatas):
+            # This indicates an inconsistency, log it and maybe return error
+            print(f"Error: Mismatch between number of IDs ({len(ids)}) and metadatas ({len(metadatas)}) returned by ChromaDB.")
+            raise HTTPException(status_code=500, detail="Internal data inconsistency.")
+
+        for block_id, metadata in zip(ids, metadatas):
+            # Metadata should contain 'name' and 'content' based on our add logic
+            block_list.append(MemoryBlockListItem(
+                id=block_id,
+                name=metadata.get('name') # Use .get() for safety in case 'name' is missing
+            ))
+        
+        return block_list
+
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error listing memory blocks: {e}") 
+        raise HTTPException(status_code=500, detail="Internal server error while listing blocks.")
+
+
+# --- NEW DELETE ENDPOINT ---
+@app.delete("/memory_blocks/{block_id}", status_code=200, tags=["Memory Blocks"], response_model=dict)
+async def delete_memory_block(block_id: str):
+    """Deletes a specific memory block by its unique ID."""
+    try:
+        # ChromaDB's delete operation typically doesn't raise an error if the ID doesn't exist.
+        # It simply removes the ID if it's present.
+        collection.delete(ids=[block_id])
+        print(f"Attempted deletion for memory block ID: {block_id}")
+        # We'll return a success message regardless, as Chroma doesn't confirm deletion status easily.
+        return {"message": f"Memory block {block_id} marked for deletion (if it existed)."}
+    
+    except Exception as e:
+        print(f"Error deleting memory block {block_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error while attempting to delete block {block_id}.")
+
 
 # Future endpoints for memory block management will go here
