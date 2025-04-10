@@ -14,27 +14,31 @@ Long-running LLM workflows often suffer from issues like:
 
 StateLock Engine aims to provide building blocks to mitigate these problems through structured memory management.
 
-## Features (Current - MVP)
+## Features (Current - Memory Block Assistant API)
 
-*   **CLI Interface:** Provides commands for managing the toolkit's state.
-*   **Memory Block Auditing:** Checks memory blocks against configurable rules (age, required tags).
-*   **Memory Block Collapse:** Archives or prunes older/less relevant memory blocks based on configurable thresholds and strategies.
-*   **State Snapshots:** Creates timestamped backups of the configuration, memory ledger, and optionally other project files.
-*   **Configuration:** Uses a `config.yaml` file for easy setup of rules and paths.
-*   **Memory Ledger:** Tracks memory block metadata in `memory_ledger.json`.
+This initial implementation focuses on a core API for managing semantic memory blocks:
+
+*   **FastAPI Interface:** Provides a web API for interacting with memory blocks.
+*   **Memory Block Storage (`POST /memory_blocks/`):** Allows storing text content, optionally with a name. Generates a semantic embedding using Sentence Transformers (`all-MiniLM-L6-v2` by default) and stores the embedding, name, and original content in a local ChromaDB vector database.
+*   **Semantic Query (`POST /memory_blocks/query/`):** Accepts query text and returns the `top_k` most semantically similar memory blocks based on vector distance.
+*   **List Blocks (`GET /memory_blocks/`):** Retrieves a list of all stored memory blocks (ID and name).
+*   **Delete Block (`DELETE /memory_blocks/{block_id}`):** Removes a specific memory block by its unique ID.
+*   **Vector Database:** Uses ChromaDB for persistent local storage of embeddings and metadata (`./chroma_db` directory).
+*   **Configuration:** Uses a `.env` file for basic configuration (database path, embedding model).
 
 ## Installation & Setup
 
 1.  **Clone the repository:**
     ```bash
-    git clone <repository_url>
+    git clone https://github.com/JBrady/statelock-engine.git
     cd statelock-engine
     ```
-2.  **Create and activate a virtual environment:**
+2.  **Create and activate a virtual environment (Python 3.11 Recommended):**
     ```bash
-    python -m venv .venv
+    # Ensure you have Python 3.11 available
+    python3.11 -m venv .venv 
     # On Windows
-    .venv\\Scripts\\activate
+    .venv\Scripts\activate
     # On macOS/Linux
     source .venv/bin/activate
     ```
@@ -42,75 +46,75 @@ StateLock Engine aims to provide building blocks to mitigate these problems thro
     ```bash
     pip install -r requirements.txt
     ```
-4.  **Initialize the project:** (Creates default `config.yaml` and `memory_ledger.json` if they don't exist)
-    ```bash
-    python cli.py init
+4.  **Configure Environment:**
+    Create a `.env` file in the project root with the following content (adjust if needed):
+    ```dotenv
+    CHROMA_DB_PATH="./chroma_db"
+    EMBEDDING_MODEL_NAME="all-MiniLM-L6-v2"
+    # OPENAI_API_KEY=your_key_here # If using OpenAI embeddings in the future
     ```
-
-## Usage (CLI)
-
-The main entry point is `cli.py`.
-
-*   **Initialize:**
+5.  **Run the API Server:**
     ```bash
-    python cli.py init
+    uvicorn main:app --reload
     ```
-*   **Audit Memory:**
-    ```bash
-    python cli.py audit [--config path/to/config.yaml]
-    ```
-*   **Collapse Memory:**
-    ```bash
-    # See what would be done (dry run)
-    python cli.py collapse --dry-run [--config path/to/config.yaml]
+    The API will be available at `http://127.0.0.1:8000`.
 
-    # Perform the collapse operation
-    python cli.py collapse [--config path/to/config.yaml]
-    ```
-*   **Create Snapshot:**
-    ```bash
-    python cli.py snapshot [-m "Optional snapshot message"] [--config path/to/config.yaml]
-    ```
+## Usage (API)
 
-## Configuration (`config.yaml`)
+You can interact with the API using tools like `curl` or through the interactive documentation provided by FastAPI.
 
-The `config.yaml` file controls the behavior of the toolkit:
+*   **Interactive Docs (Recommended):** Open your web browser and navigate to `http://127.0.0.1:8000/docs`. This UI allows you to test all endpoints directly.
 
-*   `project_name`: Identifier for the project.
-*   `memory_ledger_path`: Path to the JSON file tracking memory blocks.
-*   `audit`: Rules for the `audit` command (e.g., `max_age_days`, `max_total_blocks`).
-*   `collapse`: Settings for the `collapse` command:
-    *   `enabled`: Toggle the command.
-    *   `strategy`: How to handle selected blocks (`archive` currently).
-    *   `thresholds`: Criteria for triggering collapse (e.g., `max_age_days`, `max_total_blocks`).
-    *   `selection`: How to choose blocks to collapse (`priority`, `keep_min_blocks`).
-*   `memory_blocks`: Rules applying to individual blocks (e.g., `required_tags`).
-*   `snapshots`: Settings for the `snapshot` command:
-    *   `snapshot_directory`: Where to store snapshots.
-    *   `include_patterns`: Glob patterns for files/dirs to include in snapshots.
-    *   `exclude_patterns`: Glob patterns for files/dirs to exclude.
+*   **Example using `curl`:**
 
-## Memory Ledger (`memory_ledger.json`)
+    *   **Add a memory block:**
+        ```bash
+        curl -X 'POST' \
+          'http://127.0.0.1:8000/memory_blocks/' \
+          -H 'accept: application/json' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "content": "The user prefers concise answers.",
+            "name": "User Preference - Brevity"
+          }'
+        ```
 
-This JSON file stores an inventory of memory blocks. Each block is an object keyed by a unique ID, containing metadata like:
+    *   **Query for similar blocks:**
+        ```bash
+        curl -X 'POST' \
+          'http://127.0.0.1:8000/memory_blocks/query/' \
+          -H 'accept: application/json' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "query_text": "How should I respond to the user?",
+            "top_k": 2
+          }'
+        ```
 
-*   `creation_timestamp` (ISO 8601 format)
-*   `status` (`active`, `archived`, etc.)
-*   `tags` (List of strings)
-*   `summary` (Brief description)
-*   `related_blocks` (List of IDs)
-*   `archived_timestamp` (Added when collapsed via `archive` strategy)
-*   *(Other custom fields)*
+    *   **List all blocks:**
+        ```bash
+        curl -X 'GET' 'http://127.0.0.1:8000/memory_blocks/' -H 'accept: application/json'
+        ```
 
-## Future Plans
+    *   **Delete a block (replace `{block_id}` with an actual ID):**
+        ```bash
+        curl -X 'DELETE' 'http://127.0.0.1:8000/memory_blocks/{block_id}' -H 'accept: application/json'
+        ```
 
-*   Implement `prune` strategy for collapse.
-*   Develop API endpoints for programmatic interaction.
-*   **Prompt Injector:** Component to wrap LLM calls, automatically injecting relevant memory and context guards.
-*   **RAG Triage Layer:** System to analyze, score, and manage knowledge base content used for RAG.
-*   **Session Recovery:** More robust mechanisms to restore agent state from snapshots.
-*   **Memory-Aware Task Runner:** Integration point for frameworks to adjust behavior based on memory state.
+## Future Development
+
+This API serves as the foundation for the Memory Block Manager component of the StateLock Engine. Future work may include:
+
+*   Integration into agentic workflows (e.g., LangChain, CrewAI).
+*   Development of other StateLock components (Prompt Injector, RAG Triage, Session Snapshot).
+*   More sophisticated block management features (tagging, automatic pruning).
+*   Support for different embedding models and vector databases.
+*   Potential GUI or more advanced CLI clients.
 
 ## Contributing
 
-(Details TBD)
+Contributions are welcome! Please feel free to submit issues or pull requests.
+
+## License
+
+(Specify License - e.g., MIT License)
