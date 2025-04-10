@@ -11,3 +11,6 @@ __pycache__/
 
 # Snapshot directory (if managed locally)
 .statelock_snapshots/
+
+# Local database storage
+chroma_db/
