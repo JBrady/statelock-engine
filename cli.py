@@ -46,6 +46,7 @@ DEFAULT_LEDGER = {"schema_version": "1.0", "blocks": {}}
 
 # --- Helper Functions ---
 
+
 def load_config(config_path):
     """Safely load the YAML configuration file."""
     if not os.path.exists(config_path):
@@ -66,13 +67,12 @@ def load_config(config_path):
         click.echo(f"Error reading configuration file {config_path}: {e}", err=True)
         return None
 
+
 def load_ledger(ledger_path):
     """Safely load the JSON memory ledger file."""
     if not os.path.exists(ledger_path):
         click.echo(f"Error: Memory ledger file not found at {ledger_path}", err=True)
-        click.echo(
-            f"Ensure the path in config.yaml is correct or run 'statelock init'."
-        )
+        click.echo("Ensure the path in config.yaml is correct or run 'statelock init'.")
         return None
     try:
         with open(ledger_path, "r") as f:
@@ -90,6 +90,7 @@ def load_ledger(ledger_path):
     except IOError as e:
         click.echo(f"Error reading memory ledger file {ledger_path}: {e}", err=True)
         return None
+
 
 def save_ledger(ledger_path, ledger_data):
     """Safely save the JSON memory ledger file."""
@@ -148,15 +149,15 @@ def init():
         click.echo(f"Memory ledger file already exists: {ledger_path}")
 
     # Ensure snapshot directory exists (uses path from default config)
-    snapshot_dir = DEFAULT_CONFIG.get(
-        "snapshot_directory", ".statelock_snapshots/"
-    )
+    snapshot_dir = DEFAULT_CONFIG.get("snapshot_directory", ".statelock_snapshots/")
     if not os.path.exists(snapshot_dir):
         try:
             os.makedirs(snapshot_dir)
             click.echo(f"Created snapshot directory: {snapshot_dir}")
         except OSError as e:
-            click.echo(f"Error creating snapshot directory {snapshot_dir}: {e}", err=True)
+            click.echo(
+                f"Error creating snapshot directory {snapshot_dir}: {e}", err=True
+            )
     # No message if it already exists, as it's less critical than config/ledger
 
 
@@ -187,7 +188,7 @@ def audit(config):
     }
 
     warnings_found = 0
-    now = datetime.now(timezone.utc) # Use timezone-aware datetime
+    now = datetime.now(timezone.utc)  # Use timezone-aware datetime
 
     # 1. Check max total active blocks
     max_total_blocks_rule = audit_rules.get("max_total_blocks")
@@ -209,7 +210,9 @@ def audit(config):
             if created_str:
                 try:
                     # Attempt to parse ISO 8601 format, assuming UTC if no tz specified
-                    created_dt = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+                    created_dt = datetime.fromisoformat(
+                        created_str.replace("Z", "+00:00")
+                    )
                     # Make it timezone-aware (UTC) if it's naive
                     if created_dt.tzinfo is None:
                         created_dt = created_dt.replace(tzinfo=timezone.utc)
@@ -227,15 +230,15 @@ def audit(config):
                     )
                     warnings_found += 1
             else:
-                 click.echo(
+                click.echo(
                     f"  [WARN] Block '{block_id}' is missing creation_timestamp for age check.",
                     err=True,
-                 )
-                 warnings_found += 1 # Count missing timestamp as a warning
+                )
+                warnings_found += 1  # Count missing timestamp as a warning
 
     # 3. Check required tags
     required_tags_rule = block_rules.get("required_tags", [])
-    if required_tags_rule: # Only check if the list is not empty
+    if required_tags_rule:  # Only check if the list is not empty
         for block_id, block_data in active_blocks.items():
             block_tags = set(block_data.get("tags", []))
             missing_tags = [tag for tag in required_tags_rule if tag not in block_tags]
@@ -282,7 +285,7 @@ def collapse(config, dry_run):
 
     thresholds = collapse_rules.get("thresholds", {})
     selection_rules = collapse_rules.get("selection", {})
-    strategy = collapse_rules.get("strategy", "archive") # Default to archive
+    strategy = collapse_rules.get("strategy", "archive")  # Default to archive
     blocks = ledger_data.get("blocks", {})
 
     active_blocks = {
@@ -307,10 +310,12 @@ def collapse(config, dry_run):
     def get_creation_dt(item):
         timestamp_str = item[1].get("creation_timestamp", "9999-12-31T23:59:59Z")
         try:
-            dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
             return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
         except ValueError:
-            return datetime(9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc) # Put invalid dates last
+            return datetime(
+                9999, 12, 31, 23, 59, 59, tzinfo=timezone.utc
+            )  # Put invalid dates last
 
     sorted_active_blocks = sorted(active_blocks.items(), key=get_creation_dt)
 
@@ -330,8 +335,9 @@ def collapse(config, dry_run):
                 blocks_over_age_limit_ids.add(block_id)
                 threshold_met = True
         if blocks_over_age_limit_ids:
-             click.echo(f"  - Threshold met: {len(blocks_over_age_limit_ids)} block(s) older than {max_age_days_threshold} days.")
-
+            click.echo(
+                f"  - Threshold met: {len(blocks_over_age_limit_ids)} block(s) older than {max_age_days_threshold} days."
+            )
 
     # Check max total blocks threshold
     max_total_blocks_threshold = thresholds.get("max_total_blocks")
@@ -340,7 +346,9 @@ def collapse(config, dry_run):
         blocks_over_total_limit = max(0, num_active - max_total_blocks_threshold)
         if blocks_over_total_limit > 0:
             threshold_met = True
-            click.echo(f"  - Threshold met: Total active blocks ({num_active}) exceed limit ({max_total_blocks_threshold}) by {blocks_over_total_limit}.")
+            click.echo(
+                f"  - Threshold met: Total active blocks ({num_active}) exceed limit ({max_total_blocks_threshold}) by {blocks_over_total_limit}."
+            )
 
     if not threshold_met:
         click.echo("\nNo collapse thresholds met. No action taken.")
@@ -348,26 +356,27 @@ def collapse(config, dry_run):
 
     # --- Select Blocks for Collapse ---
     keep_min_blocks = selection_rules.get("keep_min_blocks", 0)
-    ids_to_keep_min = {item[0] for item in sorted_active_blocks[-keep_min_blocks:]} if keep_min_blocks > 0 else set()
+    ids_to_keep_min = (
+        {item[0] for item in sorted_active_blocks[-keep_min_blocks:]}
+        if keep_min_blocks > 0
+        else set()
+    )
 
     # Start with blocks over the age limit
     collapse_candidate_ids = blocks_over_age_limit_ids.copy()
 
     # Add more blocks (oldest first) if needed to meet the total block limit
-    num_needed_for_total = blocks_over_total_limit
-    num_added_for_total = 0
-
-    # How many *more* do we need *after* accounting for age-based candidates already selected?
-    # We only need to add enough blocks to bring the total down to the threshold.
     current_candidates_count = len(collapse_candidate_ids)
-    target_collapse_count_for_total = blocks_over_total_limit # How many must be removed *at minimum*
+    target_collapse_count_for_total = (
+        blocks_over_total_limit  # How many must be removed *at minimum*
+    )
 
     blocks_considered = 0
-    for block_id, _ in sorted_active_blocks: # Iterate oldest first
+    for block_id, _ in sorted_active_blocks:  # Iterate oldest first
         blocks_considered += 1
         # Stop considering if we only have the minimum keepers left
         if num_active - blocks_considered < keep_min_blocks:
-             break
+            break
 
         if block_id not in collapse_candidate_ids and block_id not in ids_to_keep_min:
             # Add this block if we *still* haven't identified enough blocks
@@ -380,11 +389,15 @@ def collapse(config, dry_run):
     final_collapse_ids = collapse_candidate_ids - ids_to_keep_min
 
     if not final_collapse_ids:
-        click.echo("\nNo blocks eligible for collapse after applying selection rules (e.g., keep_min_blocks).")
+        click.echo(
+            "\nNo blocks eligible for collapse after applying selection rules (e.g., keep_min_blocks)."
+        )
         return
 
-    click.echo(f"\nSelected {len(final_collapse_ids)} block(s) for collapse based on strategy '{strategy}':")
-    for block_id in sorted(list(final_collapse_ids)): # Print sorted for consistency
+    click.echo(
+        f"\nSelected {len(final_collapse_ids)} block(s) for collapse based on strategy '{strategy}':"
+    )
+    for block_id in sorted(list(final_collapse_ids)):  # Print sorted for consistency
         click.echo(f"  - {block_id}")
 
     # --- Apply Collapse Strategy ---
@@ -394,27 +407,40 @@ def collapse(config, dry_run):
             if block_id in ledger_data["blocks"]:
                 if strategy == "archive":
                     ledger_data["blocks"][block_id]["status"] = "archived"
-                    ledger_data["blocks"][block_id]["archived_timestamp"] = now.isoformat()
+                    ledger_data["blocks"][block_id][
+                        "archived_timestamp"
+                    ] = now.isoformat()
                     blocks_changed += 1
                 elif strategy == "prune":
                     del ledger_data["blocks"][block_id]
                     blocks_changed += 1
                 else:
-                    click.echo(f"  Error: Unknown collapse strategy '{strategy}' for block {block_id}", err=True)
+                    click.echo(
+                        f"  Error: Unknown collapse strategy '{strategy}' for block {block_id}",
+                        err=True,
+                    )
 
         if blocks_changed > 0:
             if save_ledger(ledger_path, ledger_data):
-                click.echo(f"\nSuccessfully applied '{strategy}' strategy to {blocks_changed} block(s). Ledger updated.")
+                click.echo(
+                    f"\nSuccessfully applied '{strategy}' strategy to {blocks_changed} block(s). Ledger updated."
+                )
             else:
-                click.echo("\nError saving updated ledger file. Changes may be lost.", err=True)
+                click.echo(
+                    "\nError saving updated ledger file. Changes may be lost.", err=True
+                )
         else:
-             click.echo("\nNo blocks were actually modified (this might indicate an internal issue).")
+            click.echo(
+                "\nNo blocks were actually modified (this might indicate an internal issue)."
+            )
     else:
         click.echo("\n(Dry Run) Ledger file was not modified.")
 
 
 @cli.command()
-@click.option("--message", "-m", default=None, help="Optional message for the snapshot.")
+@click.option(
+    "--message", "-m", default=None, help="Optional message for the snapshot."
+)
 @click.option("--config", default="config.yaml", help="Path to the configuration file.")
 def snapshot(config, message):
     """Create a snapshot of the current state (config, ledger, specified files)."""
@@ -423,9 +449,7 @@ def snapshot(config, message):
         return
 
     ledger_path = config_data.get("memory_ledger_path", "memory_ledger.json")
-    snapshot_base_dir = config_data.get(
-        "snapshot_directory", ".statelock_snapshots/"
-    )
+    snapshot_base_dir = config_data.get("snapshot_directory", ".statelock_snapshots/")
     snapshot_settings = config_data.get("snapshots", {})
     include_patterns = snapshot_settings.get("include_patterns", [])
     exclude_patterns = snapshot_settings.get("exclude_patterns", [])
@@ -449,7 +473,9 @@ def snapshot(config, message):
         os.makedirs(snapshot_target_dir)
         click.echo(f"Creating snapshot in: {snapshot_target_dir}")
     except OSError as e:
-        click.echo(f"Error creating snapshot directory {snapshot_target_dir}: {e}", err=True)
+        click.echo(
+            f"Error creating snapshot directory {snapshot_target_dir}: {e}", err=True
+        )
         return
 
     files_copied_count = 0
@@ -469,7 +495,9 @@ def snapshot(config, message):
     # Copy ledger
     if os.path.exists(ledger_path):
         try:
-            ledger_dest = os.path.join(snapshot_target_dir, os.path.basename(ledger_path))
+            ledger_dest = os.path.join(
+                snapshot_target_dir, os.path.basename(ledger_path)
+            )
             shutil.copy2(ledger_path, ledger_dest)
             files_copied_count += 1
             click.echo(f"  - Copied ledger: {ledger_path}")
@@ -477,7 +505,9 @@ def snapshot(config, message):
             click.echo(f"  Error copying ledger file {ledger_path}: {e}", err=True)
             errors_encountered += 1
     else:
-        click.echo(f"  Warning: Ledger file not found at {ledger_path}, skipping.", err=True)
+        click.echo(
+            f"  Warning: Ledger file not found at {ledger_path}, skipping.", err=True
+        )
 
     # --- Write Snapshot Info ---
     if message:
@@ -486,7 +516,7 @@ def snapshot(config, message):
             with open(info_path, "w") as f:
                 f.write(f"Snapshot Timestamp: {timestamp}\n")
                 f.write(f"Message: {message}\n")
-            click.echo(f"  - Saved snapshot info message.")
+            click.echo(f"  - Saved snapshot info message to {info_path}.")
         except IOError as e:
             click.echo(f"  Error writing snapshot info file {info_path}: {e}", err=True)
             errors_encountered += 1
@@ -499,14 +529,14 @@ def snapshot(config, message):
     for pattern in include_patterns:
         # Use recursive=True for **/ patterns
         try:
-             matched_items = glob.glob(pattern, recursive=True)
-             if not matched_items:
-                 click.echo(f"  - No matches found for include pattern: {pattern}")
-             for item_path in matched_items:
-                 files_to_copy.add(os.path.abspath(item_path))
+            matched_items = glob.glob(pattern, recursive=True)
+            if not matched_items:
+                click.echo(f"  - No matches found for include pattern: {pattern}")
+            for item_path in matched_items:
+                files_to_copy.add(os.path.abspath(item_path))
         except Exception as e:
-             click.echo(f"  Error processing include pattern '{pattern}': {e}", err=True)
-             errors_encountered += 1
+            click.echo(f"  Error processing include pattern '{pattern}': {e}", err=True)
+            errors_encountered += 1
 
     # Filter out excluded files/dirs
     excluded_files = set()
@@ -517,8 +547,8 @@ def snapshot(config, message):
             for item_path in matched_items:
                 excluded_files.add(os.path.abspath(item_path))
         except Exception as e:
-             click.echo(f"  Error processing exclude pattern '{pattern}': {e}", err=True)
-             # Don't count this as a copy error, just a pattern error
+            click.echo(f"  Error processing exclude pattern '{pattern}': {e}", err=True)
+            # Don't count this as a copy error, just a pattern error
 
     # Also exclude the snapshot directory itself and the core files already copied
     excluded_files.add(os.path.abspath(snapshot_base_dir))
@@ -535,8 +565,8 @@ def snapshot(config, message):
         for part in path_parts:
             current_check_path = os.path.join(current_check_path, part)
             # Handle drive letter case on Windows
-            if len(current_check_path) == 2 and current_check_path[1] == ':':
-                 current_check_path += os.sep
+            if len(current_check_path) == 2 and current_check_path[1] == ":":
+                current_check_path += os.sep
 
             if current_check_path in excluded_files:
                 is_excluded = True
@@ -550,7 +580,9 @@ def snapshot(config, message):
 
     for src_path in actual_files_to_copy:
         try:
-            relative_path = os.path.relpath(src_path, start=os.getcwd()) # Get path relative to CWD
+            relative_path = os.path.relpath(
+                src_path, start=os.getcwd()
+            )  # Get path relative to CWD
             dest_path = os.path.join(snapshot_target_dir, relative_path)
 
             # Ensure the destination parent directory exists
@@ -558,16 +590,23 @@ def snapshot(config, message):
 
             if os.path.isdir(src_path):
                 # Copy directory contents recursively, excluding already excluded items
-                shutil.copytree(src_path, dest_path, dirs_exist_ok=True, ignore=lambda dir, files: [f for f in files if os.path.join(dir, f) in excluded_files])
+                shutil.copytree(
+                    src_path,
+                    dest_path,
+                    dirs_exist_ok=True,
+                    ignore=lambda dir, files: [
+                        f for f in files if os.path.join(dir, f) in excluded_files
+                    ],
+                )
                 click.echo(f"  - Copied directory: {relative_path}")
             elif os.path.isfile(src_path):
-                shutil.copy2(src_path, dest_path) # copy2 preserves metadata
+                shutil.copy2(src_path, dest_path)  # copy2 preserves metadata
                 click.echo(f"  - Copied file: {relative_path}")
             else:
-                 click.echo(f"  - Skipping unknown type: {relative_path}")
-                 continue # Skip if not file or dir
+                click.echo(f"  - Skipping unknown type: {relative_path}")
+                continue  # Skip if not file or dir
 
-            files_copied_count += 1 # Count item copied
+            files_copied_count += 1  # Count item copied
 
         except Exception as e:
             click.echo(f"  Error copying {src_path} to {dest_path}: {e}", err=True)
