@@ -15,11 +15,9 @@ from datetime import datetime
 # --- Configuration --- 
 # Load directly into a dictionary for inspection
 env_values = dotenv_values(".env") 
-print(f"DEBUG: Loaded .env values: {env_values}") # Debug print
 
 CHROMA_DB_PATH = env_values.get("CHROMA_DB_PATH", "./chroma_db")
 EMBEDDING_MODEL_NAME = env_values.get("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
-print(f"DEBUG: Using Embedding Model Name: '{EMBEDDING_MODEL_NAME}'") # Debug print
 
 # Potentially add OPENAI_API_KEY loading here if needed
 
@@ -27,20 +25,15 @@ print(f"DEBUG: Using Embedding Model Name: '{EMBEDDING_MODEL_NAME}'") # Debug pr
 try:
     # Initialize ChromaDB client (persistent storage)
     chroma_client = chromadb.PersistentClient(path=CHROMA_DB_PATH)
-    print(f"ChromaDB client initialized. Storage path: {CHROMA_DB_PATH}")
 
     # Ensure a default collection exists (or create it)
     # Using a fixed name for now, could be configurable
     COLLECTION_NAME = "memory_blocks"
     collection = chroma_client.get_or_create_collection(name=COLLECTION_NAME)
-    print(f"ChromaDB collection '{COLLECTION_NAME}' loaded/created.")
 
     # Load the Sentence Transformer model
     embedding_model = SentenceTransformer(EMBEDDING_MODEL_NAME)
-    print(f"Sentence Transformer model '{EMBEDDING_MODEL_NAME}' loaded.")
 except Exception as e:
-    print(f"Error during initialization: {e}")
-    # Decide how to handle fatal init errors - maybe exit or raise?
     raise RuntimeError(f"Failed to initialize core components: {e}") from e
 
 
@@ -106,11 +99,9 @@ async def add_memory_block(block_data: MemoryBlockCreate):
             # documents=[block_data.content] # Alternatively, store content here - sticking with metadata for now
         )
         
-        print(f"Added memory block {block_id} (Name: {metadata['name']})")
         return MemoryBlockResponse(id=block_id, message="Memory block added successfully.")
 
     except Exception as e:
-        print(f"Error adding memory block: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
 
 @app.post("/memory_blocks/query/", response_model=MemoryBlockQueryResponse)
@@ -147,8 +138,6 @@ async def query_memory_blocks(query_data: MemoryBlockQuery):
         return MemoryBlockQueryResponse(results=formatted_results)
 
     except Exception as e:
-        # Log the error for debugging
-        print(f"Error during query: {e}") 
         raise HTTPException(status_code=500, detail="Internal server error during query.")
 
 # --- NEW ENDPOINT --- 
@@ -166,8 +155,6 @@ async def list_memory_blocks():
 
         # Ensure we have the same number of ids and metadatas
         if len(ids) != len(metadatas):
-            # This indicates an inconsistency, log it and maybe return error
-            print(f"Error: Mismatch between number of IDs ({len(ids)}) and metadatas ({len(metadatas)}) returned by ChromaDB.")
             raise HTTPException(status_code=500, detail="Internal data inconsistency.")
 
         for block_id, metadata in zip(ids, metadatas):
@@ -180,8 +167,6 @@ async def list_memory_blocks():
         return block_list
 
     except Exception as e:
-        # Log the error for debugging
-        print(f"Error listing memory blocks: {e}") 
         raise HTTPException(status_code=500, detail="Internal server error while listing blocks.")
 
 
@@ -190,15 +175,10 @@ async def list_memory_blocks():
 async def delete_memory_block(block_id: str):
     """Deletes a specific memory block by its unique ID."""
     try:
-        # ChromaDB's delete operation typically doesn't raise an error if the ID doesn't exist.
-        # It simply removes the ID if it's present.
         collection.delete(ids=[block_id])
-        print(f"Attempted deletion for memory block ID: {block_id}")
-        # We'll return a success message regardless, as Chroma doesn't confirm deletion status easily.
         return {"message": f"Memory block {block_id} marked for deletion (if it existed)."}
     
     except Exception as e:
-        print(f"Error deleting memory block {block_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error while attempting to delete block {block_id}.")
 
 
