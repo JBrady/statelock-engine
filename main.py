@@ -85,18 +85,18 @@ async def add_memory_block(block_data: MemoryBlockCreate):
         # Generate embedding for the content
         embedding = embedding_model.encode(block_data.content).tolist()
         
-        # Prepare metadata - **Include content here**
+        # Prepare metadata - **Remove content from here**
         metadata = {
-            "name": block_data.name if block_data.name else "Unnamed Block",
-            "content": block_data.content # Store the original content
+            "name": block_data.name if block_data.name else "Unnamed Block"
+            # "content": block_data.content # Store the original content - moving to documents
         }
 
         # Add to ChromaDB
         collection.add(
             ids=[block_id],
             embeddings=[embedding],
-            metadatas=[metadata]
-            # documents=[block_data.content] # Alternatively, store content here - sticking with metadata for now
+            metadatas=[metadata],
+            documents=[block_data.content] # Store content in the documents field
         )
         
         return MemoryBlockResponse(id=block_id, message="Memory block added successfully.")
@@ -115,7 +115,7 @@ async def query_memory_blocks(query_data: MemoryBlockQuery):
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=query_data.top_k,
-            include=['metadatas', 'distances'] # Request metadata and distance
+            include=['metadatas', 'distances', 'documents'] # Request metadata, distance, and documents
         )
 
         # Process and format results
@@ -124,13 +124,14 @@ async def query_memory_blocks(query_data: MemoryBlockQuery):
             ids = results['ids'][0]
             distances = results['distances'][0]
             metadatas = results['metadatas'][0]
+            documents = results['documents'][0] # Get the documents list
             
             for i in range(len(ids)):
                 formatted_results.append(
                     MemoryBlockQueryResult(
                         id=ids[i],
                         name=metadatas[i].get('name'), # Safely get name
-                        content=metadatas[i].get('content'), # Safely get content
+                        content=documents[i], # Get content from documents list
                         distance=distances[i]
                     )
                 )
