@@ -14,15 +14,17 @@ Long-running LLM workflows often suffer from issues like:
 
 StateLock Engine aims to provide building blocks to mitigate these problems through structured memory management.
 
-## Features (Current - Memory Block Assistant API)
+## Features (Current - Memory Block Assistant API & UI)
 
-This initial implementation focuses on a core API for managing semantic memory blocks:
+This implementation provides a core API and a simple web UI for managing semantic memory blocks:
 
-*   **FastAPI Interface:** Provides a web API for interacting with memory blocks.
+*   **FastAPI Backend:** Provides a web API (`main.py`) for interacting with memory blocks.
+*   **Streamlit Frontend:** Provides a user-friendly web interface (`ui.py`) for managing and querying blocks.
 *   **Memory Block Storage (`POST /memory_blocks/`):** Allows storing text content, optionally with a name. Generates a semantic embedding using Sentence Transformers (`all-MiniLM-L6-v2` by default) and stores the embedding, name, and original content in a local ChromaDB vector database.
-*   **Semantic Query (`POST /memory_blocks/query/`):** Accepts query text and returns the `top_k` most semantically similar memory blocks based on vector distance.
-*   **List Blocks (`GET /memory_blocks/`):** Retrieves a list of all stored memory blocks (ID and name).
+*   **Semantic Query (`GET /memory_blocks/query`):** Accepts query parameters `query_text` (string) and optional `n_results` (int, default 5). Returns the most semantically similar memory blocks based on vector distance.
+*   **List Blocks (`GET /memory_blocks/`):** Retrieves a list of all stored memory blocks (including ID, name, and content).
 *   **Delete Block (`DELETE /memory_blocks/{block_id}`):** Removes a specific memory block by its unique ID.
+*   **Bulk Delete Blocks (`POST /memory_blocks/delete_bulk`):** Removes multiple specified memory blocks by their IDs.
 *   **Vector Database:** Uses ChromaDB for persistent local storage of embeddings and metadata (`./chroma_db` directory).
 *   **Configuration:** Uses a `.env` file for basic configuration (database path, embedding model).
 
@@ -53,17 +55,40 @@ This initial implementation focuses on a core API for managing semantic memory b
     EMBEDDING_MODEL_NAME="all-MiniLM-L6-v2"
     # OPENAI_API_KEY=your_key_here # If using OpenAI embeddings in the future
     ```
-5.  **Run the API Server:**
+5.  **Run the API Server (Required for UI):**
+    Open a terminal and run:
     ```bash
     uvicorn main:app --reload
     ```
     The API will be available at `http://127.0.0.1:8000`.
 
-## Usage (API)
+6.  **Run the Streamlit UI (Optional, Recommended):**
+    Open a *second* terminal (while the API server is running) and run:
+    ```bash
+    streamlit run ui.py
+    ```
+    The UI will typically open automatically in your browser at `http://localhost:8501`.
 
-You can interact with the API using tools like `curl` or through the interactive documentation provided by FastAPI.
+## Usage
 
-*   **Interactive Docs (Recommended):** Open your web browser and navigate to `http://127.0.0.1:8000/docs`. This UI allows you to test all endpoints directly.
+There are two main ways to interact with the Memory Block Assistant:
+
+**1. Streamlit UI (Recommended)**
+
+*   Ensure the API server (`uvicorn main:app --reload`) is running in one terminal.
+*   Run the Streamlit app (`streamlit run ui.py`) in a second terminal.
+*   Open the Streamlit URL (usually `http://localhost:8501`) in your browser.
+*   The UI provides options to:
+    *   View existing memory blocks.
+    *   Add new blocks.
+    *   Query blocks using semantic search.
+    *   Select and delete blocks individually or in bulk.
+
+**2. Direct API Interaction (e.g., using `curl`)**
+
+You can also interact with the API endpoints directly. The FastAPI interactive documentation is a great way to explore this:
+
+*   **Interactive Docs:** With the API server running, navigate to `http://127.0.0.1:8000/docs`. This UI allows you to test all endpoints directly.
 
 *   **Example using `curl`:**
 
@@ -81,14 +106,10 @@ You can interact with the API using tools like `curl` or through the interactive
 
     *   **Query for similar blocks:**
         ```bash
-        curl -X 'POST' \
-          'http://127.0.0.1:8000/memory_blocks/query/' \
-          -H 'accept: application/json' \
-          -H 'Content-Type: application/json' \
-          -d '{
-            "query_text": "How should I respond to the user?",
-            "top_k": 2
-          }'
+        # Note: Use GET and URL encoding for query parameters
+        curl -X 'GET' \
+          'http://127.0.0.1:8000/memory_blocks/query?query_text=How%20should%20I%20respond%20to%20the%20user%3F&n_results=2' \
+          -H 'accept: application/json'
         ```
 
     *   **List all blocks:**
@@ -99,6 +120,17 @@ You can interact with the API using tools like `curl` or through the interactive
     *   **Delete a block (replace `{block_id}` with an actual ID):**
         ```bash
         curl -X 'DELETE' 'http://127.0.0.1:8000/memory_blocks/{block_id}' -H 'accept: application/json'
+        ```
+
+    *   **Delete multiple blocks (replace IDs):**
+        ```bash
+        curl -X 'POST' \
+          'http://127.0.0.1:8000/memory_blocks/delete_bulk' \
+          -H 'accept: application/json' \
+          -H 'Content-Type: application/json' \
+          -d '{
+            "block_ids": ["some-uuid-1", "another-uuid-2"]
+          }'
         ```
 
 ## Future Development
