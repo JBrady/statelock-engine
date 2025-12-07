@@ -1,21 +1,45 @@
 from fastapi.testclient import TestClient
 from main import app
 import pytest
-from unittest.mock import MagicMock
-import chromadb
+import shutil
+import os
+from app.core.database import Database
+from app.core.config import settings
 
-client = TestClient(app)
+# Override the DB path for testing
+TEST_DB_PATH = "./test_chroma_db"
 
-# Mocking ChromaDB to avoid actual DB writes during simple tests
-# However, integration tests might prefer a real DB.
-# For now, let's write a simple integration test since we are in a sandbox.
+@pytest.fixture(scope="module", autouse=True)
+def setup_test_db():
+    # Setup: Configure ChromaDB to use a test path
+    original_path = settings.CHROMA_DB_PATH
+    settings.CHROMA_DB_PATH = TEST_DB_PATH
 
-def test_read_main():
+    # Reset singleton to ensure it picks up the new path
+    Database._client = None
+    Database._collection = None
+
+    yield
+
+    # Teardown: Remove test DB directory
+    if os.path.exists(TEST_DB_PATH):
+        shutil.rmtree(TEST_DB_PATH)
+
+    # Restore original settings
+    settings.CHROMA_DB_PATH = original_path
+    Database._client = None
+    Database._collection = None
+
+@pytest.fixture
+def client():
+    return TestClient(app)
+
+def test_read_main(client):
     response = client.get("/")
     assert response.status_code == 200
     assert response.json() == {"message": "Welcome to StateLock Engine API v2"}
 
-def test_add_and_query_memory():
+def test_add_and_query_memory(client):
     # 1. Add
     payload = {
         "content": "The sky is blue.",
@@ -56,7 +80,7 @@ def test_add_and_query_memory():
     # 4. Cleanup
     client.delete(f"/memories/{block_id}")
 
-def test_session_isolation():
+def test_session_isolation(client):
     # Add memory to Session A
     client.post("/memories/", json={"content": "Secret A", "session_id": "A"})
     # Add memory to Session B

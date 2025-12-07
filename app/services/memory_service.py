@@ -7,11 +7,14 @@ from app.models.schemas import MemoryCreate, MemoryResponse, MemoryQuery
 
 class MemoryService:
     def __init__(self):
+        # We will get these lazily or via dependency injection in a more complex setup,
+        # but for now, we just ensure they are called when the service is instantiated (per request)
         self.collection = get_db_collection()
         self.embedder = get_embedder()
 
     def add_memory(self, memory: MemoryCreate) -> MemoryResponse:
         block_id = str(uuid.uuid4())
+        # This is a blocking call (CPU intensive)
         embedding = self.embedder.encode(memory.content)
         now = datetime.utcnow().isoformat()
 
@@ -20,9 +23,10 @@ class MemoryService:
             "session_id": memory.session_id,
             "created_at": now,
             "updated_at": now,
-            "tags": ",".join(memory.tags) # ChromaDB metadata must be primitive types
+            "tags": ",".join(memory.tags)
         }
 
+        # This is a blocking call (I/O)
         self.collection.add(
             ids=[block_id],
             embeddings=[embedding],
@@ -41,15 +45,13 @@ class MemoryService:
         )
 
     def query_memories(self, query: MemoryQuery) -> List[MemoryResponse]:
+        # Blocking call
         query_embedding = self.embedder.encode(query.query_text)
 
         where_clause = {}
         if query.session_id:
             where_clause["session_id"] = query.session_id
 
-        # If where_clause is empty, pass None to avoid ChromaDB errors if it expects strictly non-empty
-        # But ChromaDB handles empty dict as "no filter" usually?
-        # Actually for 'where', None is better than empty dict if we want no filter.
         filter_arg = where_clause if where_clause else None
 
         results = self.collection.query(
@@ -87,7 +89,6 @@ class MemoryService:
     def list_memories(self, session_id: Optional[str] = None, limit: int = 100) -> List[MemoryResponse]:
         where_clause = {"session_id": session_id} if session_id else None
 
-        # .get() in ChromaDB
         results = self.collection.get(
             where=where_clause,
             limit=limit,
