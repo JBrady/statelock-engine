@@ -1,0 +1,29 @@
+{
+  "memory.save": {
+    "method": "POST",
+    "url": "http://127.0.0.1:8000/memories/upsert",
+    "body": {
+      "external_id": "fact:user_pref_brevity",
+      "session_id": "telegram:chat_12345:user_987",
+      "name": "User preference",
+      "content": "User prefers concise answers.",
+      "tags": ["preference", "style"]
+    }
+  },
+  "memory.query": {
+    "method": "POST",
+    "url": "http://127.0.0.1:8000/memories/query-hybrid",
+    "body": {
+      "session_id": "telegram:chat_12345:user_987",
+      "query_text": "How should I respond?",
+      "top_k": 5,
+      "candidate_k": 20,
+      "similarity_weight": 0.75,
+      "recency_weight": 0.25
+    }
+  },
+  "memory.clear_session": {
+    "method": "DELETE",
+    "url": "http://127.0.0.1:8000/memories/session/telegram:chat_12345:user_987"
+  }
+}

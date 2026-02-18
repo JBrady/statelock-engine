@@ -1,8 +1,10 @@
 # IDE specific files
 *.code-workspace
+.DS_Store
 
 # Python virtual environment
 .venv/
+venv/
 
 # Python cache files
 __pycache__/
@@ -11,6 +13,13 @@ __pycache__/
 
 # Snapshot directory (if managed locally)
 .statelock_snapshots/
+snapshots/
 
 # Local database storage
 chroma_db/
+test_chroma_db/
+
+# Runtime env
+.env
+.env.*
+!.env.example

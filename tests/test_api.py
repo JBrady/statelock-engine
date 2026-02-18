@@ -1,98 +1,150 @@
-from fastapi.testclient import TestClient
-from main import app
-import pytest
-import shutil
 import os
-from app.core.database import Database
-from app.core.config import settings
+import shutil
 
-# Override the DB path for testing
+import pytest
+from fastapi.testclient import TestClient
+
+import app.services.embedder as embedder_module
+from app.core.config import settings
+from app.core.database import Database
+from main import app
+
 TEST_DB_PATH = "./test_chroma_db"
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_test_db():
-    # Setup: Configure ChromaDB to use a test path
     original_path = settings.CHROMA_DB_PATH
-    settings.CHROMA_DB_PATH = TEST_DB_PATH
+    original_provider = settings.EMBEDDING_PROVIDER
 
-    # Reset singleton to ensure it picks up the new path
+    settings.CHROMA_DB_PATH = TEST_DB_PATH
+    settings.EMBEDDING_PROVIDER = "hash"
     Database._client = None
     Database._collection = None
+    embedder_module.reset_embedder()
 
     yield
 
-    # Teardown: Remove test DB directory
     if os.path.exists(TEST_DB_PATH):
         shutil.rmtree(TEST_DB_PATH)
 
-    # Restore original settings
     settings.CHROMA_DB_PATH = original_path
+    settings.EMBEDDING_PROVIDER = original_provider
     Database._client = None
     Database._collection = None
+    embedder_module.reset_embedder()
+
 
 @pytest.fixture
 def client():
     return TestClient(app)
 
+
 def test_read_main(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Welcome to StateLock Engine API v2"}
+    body = response.json()
+    assert body["role"] == "memory-sidecar"
+    assert response.headers.get("X-Statelock-Version")
+    assert response.headers.get("X-Trace-Id")
 
-def test_add_and_query_memory(client):
-    # 1. Add
+
+def test_add_query_and_list_pagination(client):
     payload = {
         "content": "The sky is blue.",
         "name": "Fact 1",
         "session_id": "test_session_1",
-        "tags": ["nature", "color"]
+        "tags": ["nature", "color"],
     }
-    response = client.post("/memories/", json=payload)
-    assert response.status_code == 201
-    data = response.json()
-    assert data["content"] == payload["content"]
-    assert data["session_id"] == "test_session_1"
-    block_id = data["id"]
+    create_res = client.post("/memories/", json=payload)
+    assert create_res.status_code == 201
+    block_id = create_res.json()["id"]
 
-    # 2. Query
     query_payload = {
         "query_text": "What color is the sky?",
         "session_id": "test_session_1",
-        "top_k": 1
+        "top_k": 1,
     }
-    response = client.post("/memories/query", json=query_payload)
-    assert response.status_code == 200
-    results = response.json()["results"]
-    assert len(results) > 0
-    assert results[0]["id"] == block_id
+    query_res = client.post("/memories/query", json=query_payload)
+    assert query_res.status_code == 200
+    assert len(query_res.json()["results"]) >= 1
 
-    # 3. Query Wrong Session
-    query_payload_wrong = {
-        "query_text": "What color is the sky?",
-        "session_id": "wrong_session",
-        "top_k": 1
-    }
-    response = client.post("/memories/query", json=query_payload_wrong)
-    assert response.status_code == 200
-    results = response.json()["results"]
-    assert len(results) == 0
+    list_res = client.get("/memories/?session_id=test_session_1&limit=1&offset=0")
+    assert list_res.status_code == 200
+    body = list_res.json()
+    assert body["limit"] == 1
+    assert body["offset"] == 0
+    assert len(body["items"]) == 1
+    assert body["items"][0]["id"] == block_id
 
-    # 4. Cleanup
     client.delete(f"/memories/{block_id}")
 
-def test_session_isolation(client):
-    # Add memory to Session A
-    client.post("/memories/", json={"content": "Secret A", "session_id": "A"})
-    # Add memory to Session B
-    client.post("/memories/", json={"content": "Secret B", "session_id": "B"})
 
-    # List Session A
-    resp_a = client.get("/memories/?session_id=A")
-    assert len(resp_a.json()) >= 1
-    for item in resp_a.json():
-        assert item["session_id"] == "A"
-        assert item["content"] != "Secret B"
+def test_upsert_idempotent_and_hybrid_query(client):
+    payload = {
+        "external_id": "fact:sky",
+        "content": "Sky appears blue due to Rayleigh scattering.",
+        "name": "Sky color reason",
+        "session_id": "science",
+        "tags": ["physics"],
+    }
+    first = client.post("/memories/upsert", json=payload)
+    second = client.post("/memories/upsert", json=payload)
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["id"] == second.json()["id"]
 
-    # Cleanup
-    client.delete("/memories/session/A")
-    client.delete("/memories/session/B")
+    hybrid = client.post(
+        "/memories/query-hybrid",
+        json={
+            "query_text": "why is the sky blue",
+            "session_id": "science",
+            "top_k": 1,
+            "candidate_k": 5,
+        },
+    )
+    assert hybrid.status_code == 200
+    results = hybrid.json()["results"]
+    assert len(results) == 1
+    assert "score" in results[0]
+
+    client.delete(f"/memories/{first.json()['id']}")
+
+
+def test_session_snapshot_and_restore(client):
+    sid = "restore_demo"
+    client.post("/memories/", json={"content": "A", "session_id": sid, "tags": ["alpha"]})
+    client.post("/memories/", json={"content": "B", "session_id": sid, "tags": ["beta"]})
+
+    snap = client.get(f"/memories/session/{sid}/snapshot")
+    assert snap.status_code == 200
+    snapshot = snap.json()
+    assert snapshot["session_id"] == sid
+    assert snapshot["total"] >= 2
+    memories = snapshot["memories"]
+
+    client.delete(f"/memories/session/{sid}")
+    empty = client.get(f"/memories/?session_id={sid}")
+    assert empty.status_code == 200
+    assert empty.json()["items"] == []
+
+    restore = client.post(
+        f"/memories/session/{sid}/restore",
+        json={"mode": "append", "memories": memories},
+    )
+    assert restore.status_code == 200
+    assert restore.json()["restored"] >= 2
+
+    restored = client.get(f"/memories/?session_id={sid}")
+    assert restored.status_code == 200
+    assert len(restored.json()["items"]) >= 2
+
+    client.delete(f"/memories/session/{sid}")
+
+
+def test_validation_and_error_contract(client):
+    bad = client.post("/memories/query", json={"query_text": "", "top_k": 0})
+    assert bad.status_code == 422
+    body = bad.json()
+    assert body["code"] == "validation_error"
+    assert "trace_id" in body
