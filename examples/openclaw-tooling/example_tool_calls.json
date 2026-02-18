@@ -1,9 +1,8 @@
 {
   "memory.save": {
     "method": "POST",
-    "url": "http://127.0.0.1:8000/memories/upsert",
+    "url": "http://host.docker.internal:8000/memories/",
     "body": {
-      "external_id": "fact:user_pref_brevity",
       "session_id": "telegram:chat_12345:user_987",
       "name": "User preference",
       "content": "User prefers concise answers.",
@@ -12,7 +11,7 @@
   },
   "memory.query": {
     "method": "POST",
-    "url": "http://127.0.0.1:8000/memories/query-hybrid",
+    "url": "http://host.docker.internal:8000/memories/query-hybrid",
     "body": {
       "session_id": "telegram:chat_12345:user_987",
       "query_text": "How should I respond?",
@@ -24,6 +23,6 @@
   },
   "memory.clear_session": {
     "method": "DELETE",
-    "url": "http://127.0.0.1:8000/memories/session/telegram:chat_12345:user_987"
+    "url": "http://host.docker.internal:8000/memories/session/telegram:chat_12345:user_987"
   }
 }
