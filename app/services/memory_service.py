@@ -2,7 +2,7 @@ import hashlib
 import json
 import uuid
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from app.core.config import settings
 from app.core.database import get_db_collection
@@ -15,6 +15,9 @@ from app.models.schemas import (
     MemoryUpsert,
     SessionRestoreRequest,
     SessionSnapshotResponse,
+    SessionSummary,
+    StatsOverviewResponse,
+    TagSummary,
 )
 from app.services.embedder import get_embedder
 
@@ -288,6 +291,86 @@ class MemoryService:
         results = self.collection.get(where={"session_id": session_id})
         ids = results.get("ids") if results else []
         return len(ids or [])
+
+    def list_sessions(self, limit: int = 50, offset: int = 0) -> Tuple[List[SessionSummary], int]:
+        results = self.collection.get(include=["metadatas"])
+        metadatas = results.get("metadatas") if results else []
+
+        session_map: Dict[str, SessionSummary] = {}
+        for meta in metadatas or []:
+            sid = str(meta.get("session_id") or "").strip()
+            if not sid:
+                continue
+            updated = meta.get("updated_at") or meta.get("created_at")
+            row = session_map.get(sid)
+            if row is None:
+                session_map[sid] = SessionSummary(
+                    session_id=sid,
+                    memory_count=1,
+                    last_updated=updated,
+                )
+            else:
+                row.memory_count += 1
+                current_dt = _parse_iso(row.last_updated) if row.last_updated else None
+                candidate_dt = _parse_iso(updated) if isinstance(updated, str) else None
+                if candidate_dt and (current_dt is None or candidate_dt > current_dt):
+                    row.last_updated = updated
+
+        ordered = sorted(
+            session_map.values(),
+            key=lambda item: (
+                -(
+                    _parse_iso(item.last_updated)
+                    or datetime.fromtimestamp(0, tz=timezone.utc)
+                ).timestamp(),
+                item.session_id,
+            ),
+        )
+        total = len(ordered)
+        paged = ordered[offset : offset + limit]
+        return paged, total
+
+    def list_tags(self, limit: int = 20, offset: int = 0) -> Tuple[List[TagSummary], int]:
+        results = self.collection.get(include=["metadatas"])
+        metadatas = results.get("metadatas") if results else []
+
+        counts: Dict[str, int] = {}
+        for meta in metadatas or []:
+            for tag in _extract_tags(meta):
+                counts[tag] = counts.get(tag, 0) + 1
+
+        ordered = [TagSummary(tag=tag, count=count) for tag, count in counts.items()]
+        ordered.sort(key=lambda item: (-item.count, item.tag))
+        total = len(ordered)
+        paged = ordered[offset : offset + limit]
+        return paged, total
+
+    def stats_overview(self, top_tags_limit: int = 5) -> StatsOverviewResponse:
+        total_memories = self.count_memories()
+        _, total_sessions = self.list_sessions(limit=1, offset=0)
+        top_tags, _ = self.list_tags(limit=top_tags_limit, offset=0)
+
+        results = self.collection.get(include=["metadatas"])
+        metadatas = results.get("metadatas") if results else []
+        now = datetime.now(timezone.utc)
+        recent_writes_24h = 0
+        for meta in metadatas or []:
+            updated_raw = meta.get("updated_at")
+            created_raw = meta.get("created_at")
+            updated = _parse_iso(updated_raw) if isinstance(updated_raw, str) else None
+            created = _parse_iso(created_raw) if isinstance(created_raw, str) else None
+            ts = updated or created
+            if not ts:
+                continue
+            if (now - ts).total_seconds() <= 24 * 3600:
+                recent_writes_24h += 1
+
+        return StatsOverviewResponse(
+            total_memories=total_memories,
+            total_sessions=total_sessions,
+            recent_writes_24h=recent_writes_24h,
+            top_tags=top_tags,
+        )
 
     def snapshot_session(self, session_id: str, limit: int = 1000) -> SessionSnapshotResponse:
         offset = 0

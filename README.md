@@ -66,6 +66,9 @@ make up
 - `POST /memories/session/{session_id}/restore`
 - `GET /healthz`
 - `GET /readyz`
+- `GET /stats/overview`
+- `GET /sessions?limit=...&offset=...`
+- `GET /tags?limit=...&offset=...`
 
 ## Session ID Convention
 
@@ -86,6 +89,20 @@ See:
 - `examples/openclaw-tooling/openclaw-runtime/`
 - `examples/openclaw-tooling/AUTOMATION_CONTRACT.md`
 - `examples/litellm-client/`
+
+## Memory Console (Local)
+
+When running the API locally, a local-only UI is available at:
+
+- `http://127.0.0.1:8000/app`
+
+The console supports:
+
+- auth shell (`API base`, `API key`)
+- memory explorer and operations
+- query and hybrid query workbench
+- snapshot export/restore
+- diagnostics panel (trace/version headers + structured errors)
 
 For a quick end-to-end test with OpenClaw `/memory_query`, use the "Save a test memory" section in:
 

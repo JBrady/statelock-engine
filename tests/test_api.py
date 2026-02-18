@@ -195,3 +195,50 @@ def test_auth_required(client):
 
     settings.AUTH_REQUIRED = False
     settings.STATELOCK_API_KEY = ""
+
+
+def test_insights_endpoints(client):
+    client.post(
+        "/memories/",
+        json={
+            "content": "Use local-first fallback policy",
+            "session_id": "telegram:chat_1:user_1",
+            "tags": ["policy", "fallback"],
+        },
+    )
+    client.post(
+        "/memories/",
+        json={
+            "content": "User prefers concise responses",
+            "session_id": "telegram:chat_1:user_1",
+            "tags": ["preference"],
+        },
+    )
+    client.post(
+        "/memories/",
+        json={
+            "content": "Todo: add better diagnostics",
+            "session_id": "telegram:chat_2:user_2",
+            "tags": ["todo"],
+        },
+    )
+
+    overview = client.get("/stats/overview")
+    assert overview.status_code == 200
+    body = overview.json()
+    assert body["total_memories"] >= 3
+    assert body["total_sessions"] >= 2
+    assert "top_tags" in body
+
+    sessions = client.get("/sessions?limit=10&offset=0")
+    assert sessions.status_code == 200
+    sessions_body = sessions.json()
+    assert sessions_body["total"] >= 2
+    assert len(sessions_body["items"]) >= 2
+    assert "session_id" in sessions_body["items"][0]
+
+    tags = client.get("/tags?limit=10&offset=0")
+    assert tags.status_code == 200
+    tags_body = tags.json()
+    assert tags_body["total"] >= 3
+    assert len(tags_body["items"]) >= 3

@@ -112,3 +112,35 @@ class SessionRestoreResponse(BaseModel):
     session_id: str
     restored: int
     mode: Literal["replace", "append"]
+
+
+class SessionSummary(BaseModel):
+    session_id: str
+    memory_count: int
+    last_updated: Optional[str] = None
+
+
+class SessionsResponse(BaseModel):
+    items: List[SessionSummary]
+    limit: int
+    offset: int
+    total: int
+
+
+class TagSummary(BaseModel):
+    tag: str
+    count: int
+
+
+class TagsResponse(BaseModel):
+    items: List[TagSummary]
+    limit: int
+    offset: int
+    total: int
+
+
+class StatsOverviewResponse(BaseModel):
+    total_memories: int
+    total_sessions: int
+    recent_writes_24h: int
+    top_tags: List[TagSummary]

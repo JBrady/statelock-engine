@@ -1,16 +1,18 @@
 import logging
 import uuid
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.database import Database
 from app.core.errors import AppError, InternalServiceError, ServiceUnavailableError
 from app.models.errors import ErrorResponse
-from app.routers import memories
+from app.routers import insights, memories
 from app.services.embedder import get_embedder
 
 logger = logging.getLogger(__name__)
@@ -22,6 +24,11 @@ app = FastAPI(
 )
 
 app.include_router(memories.router, prefix=settings.API_PREFIX, tags=["Memories"])
+app.include_router(insights.router, tags=["Insights"])
+
+site_app_path = Path(__file__).resolve().parent / "site" / "app"
+if site_app_path.exists():
+    app.mount("/app", StaticFiles(directory=str(site_app_path), html=True), name="console-app")
 
 
 @app.middleware("http")

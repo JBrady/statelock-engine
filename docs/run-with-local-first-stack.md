@@ -19,6 +19,7 @@ make up
 API docs:
 
 - `http://127.0.0.1:8000/docs`
+- Console (local): `http://127.0.0.1:8000/app`
 
 ## 2) Keep your existing LiteLLM aliases
 
