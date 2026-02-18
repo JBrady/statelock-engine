@@ -47,5 +47,7 @@ Reference snippet:
 
 ## Notes
 
-- Defaults to `session_id = agent:chat:main` unless you pass `session_id` in JSON mode.
+- Defaults to `session_id = agent:chat:main` unless args include channel/chat/user fields or you pass `session_id` in JSON mode.
+- `failOpen` defaults to `true` in config snippet, so memory outages return warning JSON instead of aborting chat.
+- Set `apiKey` in plugin config when StateLock `AUTH_REQUIRED=true`.
 - JSON array tags can be mangled by Telegram slash command parsing; use comma string tags for reliability.

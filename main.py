@@ -2,13 +2,16 @@ import logging
 import uuid
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.core.config import settings
-from app.core.errors import AppError, InternalServiceError
+from app.core.database import Database
+from app.core.errors import AppError, InternalServiceError, ServiceUnavailableError
 from app.models.errors import ErrorResponse
 from app.routers import memories
+from app.services.embedder import get_embedder
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +27,14 @@ app.include_router(memories.router, prefix=settings.API_PREFIX, tags=["Memories"
 @app.middleware("http")
 async def request_context_middleware(request: Request, call_next):
     trace_id = request.headers.get("X-Trace-Id") or str(uuid.uuid4())
+    requested_version = request.headers.get("X-Statelock-Version")
     request.state.trace_id = trace_id
+    request.state.requested_version = requested_version
     response = await call_next(request)
     response.headers["X-Trace-Id"] = trace_id
     response.headers["X-Statelock-Version"] = settings.API_VERSION
+    if requested_version:
+        response.headers["X-Statelock-Version-Requested"] = requested_version
     return response
 
 
@@ -47,7 +54,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     payload = ErrorResponse(
         code="validation_error",
         message="Request validation failed",
-        details=exc.errors(),
+        details=jsonable_encoder(exc.errors()),
         trace_id=getattr(request.state, "trace_id", "unknown"),
     )
     return JSONResponse(status_code=422, content=payload.model_dump())
@@ -73,3 +80,18 @@ async def root():
         "version": settings.API_VERSION,
         "role": "memory-sidecar",
     }
+
+
+@app.get("/healthz", tags=["Health"])
+async def healthz():
+    return {"status": "ok"}
+
+
+@app.get("/readyz", tags=["Health"])
+async def readyz():
+    try:
+        Database.get_collection()
+        get_embedder()
+    except Exception as exc:
+        raise ServiceUnavailableError(details=str(exc))
+    return {"status": "ready"}

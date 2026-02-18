@@ -60,6 +60,15 @@ def _parse_created_at(meta: dict) -> Optional[datetime]:
         return None
 
 
+def _parse_iso(raw: Optional[str]) -> Optional[datetime]:
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
 class MemoryService:
     def __init__(self):
         self.collection = get_db_collection()
@@ -231,7 +240,16 @@ class MemoryService:
             item.score = float(score)
             scored.append(item)
 
-        scored.sort(key=lambda x: (x.score or 0.0), reverse=True)
+        scored.sort(
+            key=lambda item: (
+                -(item.score or 0.0),
+                -(
+                    _parse_iso(item.updated_at or item.created_at)
+                    or datetime.fromtimestamp(0, tz=timezone.utc)
+                ).timestamp(),
+                item.id,
+            )
+        )
         return scored[: query.top_k]
 
     def list_memories(
@@ -262,6 +280,14 @@ class MemoryService:
                     )
                 )
         return formatted
+
+    def count_memories(self, session_id: Optional[str] = None) -> int:
+        if session_id is None:
+            return int(self.collection.count())
+
+        results = self.collection.get(where={"session_id": session_id})
+        ids = results.get("ids") if results else []
+        return len(ids or [])
 
     def snapshot_session(self, session_id: str, limit: int = 1000) -> SessionSnapshotResponse:
         offset = 0

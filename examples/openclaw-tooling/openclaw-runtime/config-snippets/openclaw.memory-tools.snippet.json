@@ -14,7 +14,9 @@
         "config": {
           "endpoint": "http://host.docker.internal:8000/memories/query-hybrid",
           "saveEndpoint": "http://host.docker.internal:8000/memories/",
-          "sessionId": "agent:chat:main"
+          "sessionId": "agent:chat:main",
+          "failOpen": true,
+          "apiKey": ""
         }
       }
     }

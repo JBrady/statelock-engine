@@ -35,3 +35,23 @@ class InternalServiceError(AppError):
             status_code=500,
             details=details,
         )
+
+
+class UnauthorizedError(AppError):
+    def __init__(self, message: str = "Unauthorized", details: Any = None):
+        super().__init__(
+            code="unauthorized",
+            message=message,
+            status_code=401,
+            details=details,
+        )
+
+
+class ServiceUnavailableError(AppError):
+    def __init__(self, message: str = "Service unavailable", details: Any = None):
+        super().__init__(
+            code="service_unavailable",
+            message=message,
+            status_code=503,
+            details=details,
+        )

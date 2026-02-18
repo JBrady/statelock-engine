@@ -10,19 +10,33 @@ const DEFAULT_SAVE_ENDPOINTS = [
   "http://localhost:8000/memories/"
 ];
 
-function getPluginConfig(api: any): { endpoint?: string; saveEndpoint?: string; sessionId?: string } {
+function getPluginConfig(api: any): {
+  endpoint?: string;
+  saveEndpoint?: string;
+  sessionId?: string;
+  failOpen?: boolean;
+  apiKey?: string;
+} {
   const entries = api?.config?.plugins?.entries;
   const cfg = entries && entries.memory_query_tool && entries.memory_query_tool.config;
   return cfg && typeof cfg === "object" ? cfg : {};
 }
 
-async function postJson(url: string, payload: Record<string, unknown>, timeoutMs = 5000) {
+async function postJson(
+  url: string,
+  payload: Record<string, unknown>,
+  timeoutMs = 5000,
+  apiKey?: string
+) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(apiKey ? { "X-Statelock-Api-Key": apiKey } : {})
+      },
       body: JSON.stringify(payload),
       signal: controller.signal
     });
@@ -46,10 +60,50 @@ function normalizeTags(value: unknown): string[] {
   return [];
 }
 
+function deriveSessionId(args: any, configuredSessionId?: string): string {
+  const fallback = (configuredSessionId || "agent:chat:main").trim();
+  const channel = String(
+    args?.channel || args?.source || args?.platform || ""
+  ).trim();
+  const chatOrThread = String(
+    args?.thread || args?.thread_id || args?.chat || args?.chat_id || ""
+  ).trim();
+  const userOrAgent = String(
+    args?.user || args?.user_id || args?.agent || args?.agent_id || ""
+  ).trim();
+  if (channel && chatOrThread && userOrAgent) {
+    return `${channel}:${chatOrThread}:${userOrAgent}`;
+  }
+  return fallback;
+}
+
+function signalConfidence(modelOutput: string): { confidence_low: boolean; reason: string } {
+  const text = modelOutput.trim();
+  if (!text) {
+    return { confidence_low: true, reason: "empty_response" };
+  }
+  const uncertainty = /\b(i am not sure|i think|maybe|might|uncertain|not confident)\b/i.test(text);
+  if (uncertainty) {
+    return { confidence_low: true, reason: "uncertainty_language" };
+  }
+  if (text.split(/\s+/).length < 8) {
+    return { confidence_low: true, reason: "too_short" };
+  }
+  return { confidence_low: false, reason: "none" };
+}
+
+function maybeParseJson(raw: string): any | null {
+  const trimmed = raw.trim();
+  if (!(trimmed.startsWith("{") && trimmed.endsWith("}"))) {
+    return null;
+  }
+  return JSON.parse(trimmed);
+}
+
 function parseMemorySaveCommand(
   raw: string,
   defaults: { sessionId: string }
-): { content: string; name: string; tags: string[]; session_id: string } {
+): { content: string; name: string; tags: string[]; session_id: string; model_output?: string } {
   const trimmed = raw.trim();
   if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
     let parsed: any = null;
@@ -82,7 +136,8 @@ function parseMemorySaveCommand(
         content: contentMatch[1].trim(),
         name: (nameMatch?.[1] || "telegram memory").trim() || "telegram memory",
         tags: tags.length > 0 ? tags : ["telegram", "manual"],
-        session_id: (sessionMatch?.[1] || defaults.sessionId).trim() || defaults.sessionId
+        session_id: (sessionMatch?.[1] || defaults.sessionId).trim() || defaults.sessionId,
+        model_output: undefined
       };
     }
 
@@ -100,7 +155,8 @@ function parseMemorySaveCommand(
       content,
       name,
       tags: tags.length > 0 ? tags : ["telegram", "manual"],
-      session_id: sessionId
+      session_id: sessionId,
+      model_output: typeof (parsed as any).model_output === "string" ? (parsed as any).model_output : undefined
     };
   }
 
@@ -108,7 +164,44 @@ function parseMemorySaveCommand(
     content: trimmed,
     name: "telegram memory",
     tags: ["telegram", "manual"],
-    session_id: defaults.sessionId
+    session_id: defaults.sessionId,
+    model_output: undefined
+  };
+}
+
+function parseMemoryQueryCommand(
+  raw: string,
+  defaults: { sessionId: string }
+): {
+  query_text: string;
+  session_id: string;
+  top_k: number;
+  candidate_k: number;
+  similarity_weight: number;
+  recency_weight: number;
+} {
+  const parsed = maybeParseJson(raw);
+  if (!parsed || typeof parsed !== "object") {
+    return {
+      query_text: raw.trim(),
+      session_id: defaults.sessionId,
+      top_k: 5,
+      candidate_k: 20,
+      similarity_weight: 0.75,
+      recency_weight: 0.25
+    };
+  }
+  const queryText = String(parsed.query || parsed.query_text || "").trim();
+  if (!queryText) {
+    throw new Error("memory.query requires non-empty 'query' or 'query_text'.");
+  }
+  return {
+    query_text: queryText,
+    session_id: String(parsed.session_id || defaults.sessionId).trim() || defaults.sessionId,
+    top_k: Number(parsed.top_k || 5),
+    candidate_k: Number(parsed.candidate_k || 20),
+    similarity_weight: Number(parsed.similarity_weight ?? 0.75),
+    recency_weight: Number(parsed.recency_weight ?? 0.25)
   };
 }
 
@@ -134,22 +227,17 @@ export default function register(api: any) {
       }
 
       const cfg = getPluginConfig(api);
+      const failOpen = cfg.failOpen !== false;
       const endpoints = [cfg.endpoint, process.env.STATELOCK_ENDPOINT, ...DEFAULT_QUERY_ENDPOINTS]
         .filter((v): v is string => typeof v === "string" && v.trim().length > 0);
 
-      const payload = {
-        query_text: queryText,
-        session_id: cfg.sessionId || "agent:chat:main",
-        top_k: 5,
-        candidate_k: 20,
-        similarity_weight: 0.75,
-        recency_weight: 0.25
-      };
+      const sessionId = deriveSessionId(args, cfg.sessionId);
+      const payload = parseMemoryQueryCommand(queryText, { sessionId });
 
       let lastError = "";
       for (const endpoint of endpoints) {
         try {
-          const resp = await postJson(endpoint, payload, 5000);
+          const resp = await postJson(endpoint, payload, 5000, cfg.apiKey);
           const text = await resp.text();
           if (!resp.ok) {
             lastError = `${endpoint} -> HTTP ${resp.status}: ${text}`;
@@ -163,6 +251,20 @@ export default function register(api: any) {
         }
       }
 
+      if (failOpen) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                results: [],
+                warning: "memory_unavailable",
+                details: lastError
+              })
+            }
+          ]
+        };
+      }
       throw new Error(`StateLock query failed. ${lastError}`);
     }
   });
@@ -188,37 +290,76 @@ export default function register(api: any) {
       }
 
       const cfg = getPluginConfig(api);
+      const failOpen = cfg.failOpen !== false;
       const endpoints = [cfg.saveEndpoint, process.env.STATELOCK_SAVE_ENDPOINT, ...DEFAULT_SAVE_ENDPOINTS]
         .filter((v): v is string => typeof v === "string" && v.trim().length > 0);
 
-      let payload: { content: string; name: string; session_id: string; tags: string[] };
+      let payload: { content: string; name: string; session_id: string; tags: string[]; model_output?: string };
       try {
         payload = parseMemorySaveCommand(content, {
-          sessionId: cfg.sessionId || "agent:chat:main"
+          sessionId: deriveSessionId(args, cfg.sessionId)
         });
       } catch (err: any) {
         throw new Error(
           `Invalid /memory_save format. Use plain text or JSON like {"content":"...","name":"...","tags":["a","b"]}. ${String(err?.message || err)}`
         );
       }
+      const confidence = signalConfidence(payload.model_output || "");
+      const savePayload = {
+        content: payload.content,
+        name: payload.name,
+        session_id: payload.session_id,
+        tags: payload.tags
+      };
 
       let lastError = "";
       for (const endpoint of endpoints) {
         try {
-          const resp = await postJson(endpoint, payload, 5000);
+          const resp = await postJson(endpoint, savePayload, 5000, cfg.apiKey);
           const text = await resp.text();
           if (!resp.ok) {
             lastError = `${endpoint} -> HTTP ${resp.status}: ${text}`;
             continue;
           }
+          let parsed: any = {};
+          try {
+            parsed = JSON.parse(text);
+          } catch {
+            parsed = { raw: text };
+          }
           return {
-            content: [{ type: "text", text }]
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  ...parsed,
+                  confidence_low: confidence.confidence_low,
+                  confidence_reason: confidence.reason
+                })
+              }
+            ]
           };
         } catch (err: any) {
           lastError = `${endpoint} -> ${String(err?.message || err)}`;
         }
       }
 
+      if (failOpen) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                saved: false,
+                warning: "memory_unavailable",
+                details: lastError,
+                confidence_low: confidence.confidence_low,
+                confidence_reason: confidence.reason
+              })
+            }
+          ]
+        };
+      }
       throw new Error(`StateLock save failed. ${lastError}`);
     }
   });

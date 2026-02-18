@@ -7,6 +7,8 @@ Tool surface:
 - `memory.save`
 - `memory.query`
 - `memory.clear_session`
+- pre-model `memory.query` hook request contract
+- post-model `memory.save` hook request contract + `confidence_low` signal
 
 If you expose these through Telegram in OpenClaw, a practical mapping is:
 
@@ -18,6 +20,9 @@ Recommended session format:
 `{channel}:{thread_or_chat}:{user_or_agent}`
 
 Use `example_tool_calls.json` as a template for your own tool adapter.
+Automation flow contract:
+
+- `AUTOMATION_CONTRACT.md`
 
 For a portable, versioned OpenClaw runtime bundle (plugin + skills + config snippet), see:
 

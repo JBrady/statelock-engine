@@ -65,16 +65,24 @@ Example:
 ## 4) Example flow
 
 1. Agent receives message.
-2. Call `memory.query` for session context.
+2. Derive session id: `{channel}:{thread_or_chat}:{user_or_agent}`.
+3. Call `memory.query` for session context.
 3. Build prompt with retrieved memories.
 4. Call LiteLLM model alias.
-5. Save durable facts with `memory.save`.
+5. Emit confidence hint (`confidence_low`) from model output.
+6. Save durable facts with `memory.save` based on policy triggers.
+
+Automation contract:
+
+- `examples/openclaw-tooling/AUTOMATION_CONTRACT.md`
 
 ## 5) Smoke checks
 
 ```bash
 curl -s http://127.0.0.1:8000/
 curl -s http://127.0.0.1:8000/memories/?limit=1
+curl -s http://127.0.0.1:8000/healthz
+curl -s http://127.0.0.1:8000/readyz
 ```
 
 ## 6) Save a test memory (for `/memory_query`)
@@ -88,6 +96,7 @@ Save a test memory into that same session:
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/memories/ \
   -H "content-type: application/json" \
+  -H "X-Statelock-Version: 1" \
   -d '{
     "content": "We use local models first and escalate to cloud when confidence is low or correctness is critical.",
     "name": "cloud fallback policy",
@@ -107,6 +116,7 @@ Optional: direct API query check (without OpenClaw):
 ```bash
 curl -sS -X POST http://127.0.0.1:8000/memories/query-hybrid \
   -H "content-type: application/json" \
+  -H "X-Statelock-Version: 1" \
   -d '{
     "query_text": "what did we decide about cloud fallback",
     "session_id": "agent:chat:main",
@@ -138,3 +148,5 @@ Expected query response shape:
 ```json
 {"results":[...]}
 ```
+
+If `failOpen=true` in the OpenClaw plugin config and StateLock is unavailable, query/save tools return warning JSON and agent chat can continue.

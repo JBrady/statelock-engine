@@ -1,17 +1,46 @@
 from typing import List, Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.core.config import settings
 
 
 class MemoryBase(BaseModel):
-    content: str = Field(..., min_length=1, description="The text content of the memory block.")
-    name: Optional[str] = Field(None, description="An optional descriptive name.")
+    content: str = Field(
+        ...,
+        min_length=1,
+        max_length=settings.API_CONTENT_MAX_CHARS,
+        description="The text content of the memory block.",
+    )
+    name: Optional[str] = Field(
+        None,
+        max_length=settings.API_NAME_MAX_CHARS,
+        description="An optional descriptive name.",
+    )
     session_id: str = Field(
         "default",
         min_length=1,
+        max_length=settings.API_SESSION_ID_MAX_CHARS,
         description="The session ID this memory belongs to.",
     )
-    tags: List[str] = Field(default_factory=list, description="Tags for categorization.")
+    tags: List[str] = Field(
+        default_factory=list,
+        max_length=settings.API_TAG_MAX_COUNT,
+        description="Tags for categorization.",
+    )
+
+    @field_validator("tags")
+    @classmethod
+    def validate_tags(cls, value: List[str]) -> List[str]:
+        cleaned: List[str] = []
+        for tag in value:
+            tag_text = str(tag).strip()
+            if not tag_text:
+                continue
+            if len(tag_text) > settings.API_TAG_MAX_CHARS:
+                raise ValueError(f"Tag exceeds max length {settings.API_TAG_MAX_CHARS}")
+            cleaned.append(tag_text)
+        return cleaned
 
 
 class MemoryCreate(MemoryBase):

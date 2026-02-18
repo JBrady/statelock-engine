@@ -16,9 +16,13 @@ TEST_DB_PATH = "./test_chroma_db"
 def setup_test_db():
     original_path = settings.CHROMA_DB_PATH
     original_provider = settings.EMBEDDING_PROVIDER
+    original_auth_required = settings.AUTH_REQUIRED
+    original_api_key = settings.STATELOCK_API_KEY
 
     settings.CHROMA_DB_PATH = TEST_DB_PATH
     settings.EMBEDDING_PROVIDER = "hash"
+    settings.AUTH_REQUIRED = False
+    settings.STATELOCK_API_KEY = ""
     Database._client = None
     Database._collection = None
     embedder_module.reset_embedder()
@@ -30,6 +34,8 @@ def setup_test_db():
 
     settings.CHROMA_DB_PATH = original_path
     settings.EMBEDDING_PROVIDER = original_provider
+    settings.AUTH_REQUIRED = original_auth_required
+    settings.STATELOCK_API_KEY = original_api_key
     Database._client = None
     Database._collection = None
     embedder_module.reset_embedder()
@@ -41,12 +47,13 @@ def client():
 
 
 def test_read_main(client):
-    response = client.get("/")
+    response = client.get("/", headers={"X-Statelock-Version": "client-v1"})
     assert response.status_code == 200
     body = response.json()
     assert body["role"] == "memory-sidecar"
     assert response.headers.get("X-Statelock-Version")
     assert response.headers.get("X-Trace-Id")
+    assert response.headers.get("X-Statelock-Version-Requested") == "client-v1"
 
 
 def test_add_query_and_list_pagination(client):
@@ -74,6 +81,7 @@ def test_add_query_and_list_pagination(client):
     body = list_res.json()
     assert body["limit"] == 1
     assert body["offset"] == 0
+    assert body["total"] >= 1
     assert len(body["items"]) == 1
     assert body["items"][0]["id"] == block_id
 
@@ -148,3 +156,42 @@ def test_validation_and_error_contract(client):
     body = bad.json()
     assert body["code"] == "validation_error"
     assert "trace_id" in body
+
+    too_long = client.post(
+        "/memories/",
+        json={
+            "content": "x",
+            "session_id": "s",
+            "tags": ["a" * (settings.API_TAG_MAX_CHARS + 1)],
+        },
+    )
+    assert too_long.status_code == 422
+    assert too_long.json()["code"] == "validation_error"
+
+
+def test_health_and_ready(client):
+    health = client.get("/healthz")
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
+
+    ready = client.get("/readyz")
+    assert ready.status_code == 200
+    assert ready.json()["status"] == "ready"
+
+
+def test_auth_required(client):
+    settings.AUTH_REQUIRED = True
+    settings.STATELOCK_API_KEY = "test-key"
+
+    missing = client.get("/memories/?limit=1")
+    assert missing.status_code == 401
+    assert missing.json()["code"] == "unauthorized"
+
+    wrong = client.get("/memories/?limit=1", headers={"X-Statelock-Api-Key": "bad"})
+    assert wrong.status_code == 401
+
+    ok = client.get("/memories/?limit=1", headers={"X-Statelock-Api-Key": "test-key"})
+    assert ok.status_code == 200
+
+    settings.AUTH_REQUIRED = False
+    settings.STATELOCK_API_KEY = ""

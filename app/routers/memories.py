@@ -2,6 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Query
 
+from app.core.auth import require_api_key
 from app.core.config import settings
 from app.models.schemas import (
     BulkDeleteRequest,
@@ -18,7 +19,7 @@ from app.models.schemas import (
 )
 from app.services.memory_service import MemoryService
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_api_key)])
 
 
 def get_memory_service() -> MemoryService:
@@ -58,7 +59,8 @@ def list_memories(
     service: MemoryService = Depends(get_memory_service),
 ):
     items = service.list_memories(session_id=session_id, limit=limit, offset=offset)
-    return PaginatedMemoriesResponse(items=items, limit=limit, offset=offset, total=None)
+    total = service.count_memories(session_id=session_id)
+    return PaginatedMemoriesResponse(items=items, limit=limit, offset=offset, total=total)
 
 
 @router.delete("/bulk", status_code=200)

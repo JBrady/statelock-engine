@@ -19,6 +19,9 @@ snapshots/
 chroma_db/
 test_chroma_db/
 
+# Local-only website work (do not commit for now)
+site/
+
 # Runtime env
 .env
 .env.*

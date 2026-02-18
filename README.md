@@ -27,6 +27,9 @@ StateLock handles memory persistence/retrieval. It does **not** route model call
 - Response headers:
   - `X-Trace-Id`
   - `X-Statelock-Version`
+  - `X-Statelock-Version-Requested` (echoed when request provides `X-Statelock-Version`)
+- Optional API auth (`X-Statelock-Api-Key`) controlled by env
+- Health endpoints (`/healthz`, `/readyz`)
 
 ## Quickstart (Local)
 
@@ -61,6 +64,8 @@ make up
 - `DELETE /memories/bulk`
 - `GET /memories/session/{session_id}/snapshot`
 - `POST /memories/session/{session_id}/restore`
+- `GET /healthz`
+- `GET /readyz`
 
 ## Session ID Convention
 
@@ -79,6 +84,7 @@ See:
 - `docs/run-with-local-first-stack.md`
 - `examples/openclaw-tooling/`
 - `examples/openclaw-tooling/openclaw-runtime/`
+- `examples/openclaw-tooling/AUTOMATION_CONTRACT.md`
 - `examples/litellm-client/`
 
 For a quick end-to-end test with OpenClaw `/memory_query`, use the "Save a test memory" section in:
@@ -94,6 +100,25 @@ Cloudflare domain strategy, redirect policy, and DNS/email templates:
 - `infra/cloudflare/redirects.csv`
 - `infra/cloudflare/dns-template.md`
 
+## Website (Static v1)
+
+The public website lives in:
+
+- `site/`
+
+Key routes shipped in v1:
+
+- `/` (landing page)
+- `/docs`
+- `/install`
+- `/github` (redirect)
+- `/changelog` (redirect)
+
+Cloudflare Pages deployment defaults:
+
+- Build command: none
+- Output directory: `site`
+
 ## Development
 
 ```bash
@@ -102,6 +127,12 @@ make test
 ```
 
 CI runs both lint and tests.
+
+## Operations
+
+- Runbook: `docs/operator-runbook.md`
+- Release checklist: `docs/release-checklist.md`
+- Changelog: `CHANGELOG.md`
 
 ## License
 
