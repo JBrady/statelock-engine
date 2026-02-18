@@ -21,6 +21,8 @@ test_chroma_db/
 
 # Local-only website work (do not commit for now)
 site/
+docs/domain-operations.md
+docs/website-routing.md
 
 # Runtime env
 .env
