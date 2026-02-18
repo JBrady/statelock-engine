@@ -1,0 +1,14 @@
+{
+  "id": "memory_query_tool",
+  "name": "StateLock Memory Query",
+  "description": "Adds a tool to query StateLock memory by query text.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "endpoint": { "type": "string" },
+      "saveEndpoint": { "type": "string" },
+      "sessionId": { "type": "string" }
+    }
+  }
+}

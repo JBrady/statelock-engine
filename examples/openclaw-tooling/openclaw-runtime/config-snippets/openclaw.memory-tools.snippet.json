@@ -1,0 +1,22 @@
+{
+  "channels": {
+    "telegram": {
+      "customCommands": [
+        { "command": "memory_query", "description": "Query StateLock memory" },
+        { "command": "memory_save", "description": "Save StateLock memory" }
+      ]
+    }
+  },
+  "plugins": {
+    "entries": {
+      "memory_query_tool": {
+        "enabled": true,
+        "config": {
+          "endpoint": "http://host.docker.internal:8000/memories/query-hybrid",
+          "saveEndpoint": "http://host.docker.internal:8000/memories/",
+          "sessionId": "agent:chat:main"
+        }
+      }
+    }
+  }
+}

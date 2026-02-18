@@ -78,6 +78,7 @@ See:
 
 - `docs/run-with-local-first-stack.md`
 - `examples/openclaw-tooling/`
+- `examples/openclaw-tooling/openclaw-runtime/`
 - `examples/litellm-client/`
 
 For a quick end-to-end test with OpenClaw `/memory_query`, use the "Save a test memory" section in:

@@ -45,6 +45,10 @@ In the current OpenClaw Telegram setup, these are exposed as slash commands:
 - `/memory_save ...`
 - `/memory_query ...`
 
+Portable runtime bundle (plugin + skills + config snippet):
+
+- `examples/openclaw-tooling/openclaw-runtime/`
+
 Connection URL:
 
 - OpenClaw in Docker: `http://host.docker.internal:8000`

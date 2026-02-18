@@ -19,6 +19,10 @@ Recommended session format:
 
 Use `example_tool_calls.json` as a template for your own tool adapter.
 
+For a portable, versioned OpenClaw runtime bundle (plugin + skills + config snippet), see:
+
+- `openclaw-runtime/README.md`
+
 URL note:
 
 - If OpenClaw runs in Docker, use `http://host.docker.internal:8000`.
