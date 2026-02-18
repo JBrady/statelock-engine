@@ -1,0 +1,8 @@
+source_url,target_url,status_code,preserve_query_string,subpath_matching
+http://statelockengine.com/*,https://statelockengine.com/:splat,301,true,true
+http://www.statelockengine.com/*,https://statelockengine.com/:splat,301,true,true
+https://www.statelockengine.com/*,https://statelockengine.com/:splat,301,true,true
+http://statelockengine.dev/*,https://statelockengine.com/:splat,301,true,true
+https://statelockengine.dev/*,https://statelockengine.com/:splat,301,true,true
+http://statelockengine.io/*,https://statelockengine.com/:splat,301,true,true
+https://statelockengine.io/*,https://statelockengine.com/:splat,301,true,true

@@ -85,6 +85,15 @@ For a quick end-to-end test with OpenClaw `/memory_query`, use the "Save a test 
 
 - `docs/run-with-local-first-stack.md`
 
+## Domain and Website Ops
+
+Cloudflare domain strategy, redirect policy, and DNS/email templates:
+
+- `docs/domain-operations.md`
+- `docs/website-routing.md`
+- `infra/cloudflare/redirects.csv`
+- `infra/cloudflare/dns-template.md`
+
 ## Development
 
 ```bash
