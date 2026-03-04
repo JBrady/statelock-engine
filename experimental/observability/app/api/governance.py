@@ -19,7 +19,11 @@ def governance_apply(conversation_id: str, payload: GovernanceApplyRequest, db: 
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    snapshot = db.get(TelemetrySnapshot, payload.snapshot_id) if payload.snapshot_id else None
+    snapshot = None
+    if payload.snapshot_id:
+        snapshot = db.get(TelemetrySnapshot, payload.snapshot_id)
+        if not snapshot or snapshot.conversation_id != conversation_id:
+            raise HTTPException(status_code=404, detail="Telemetry snapshot not found")
     rebuilt, quarantined, wc = apply_governance(db, conversation, snapshot, payload.actions)
     db.commit()
     return GovernanceApplyResponse(

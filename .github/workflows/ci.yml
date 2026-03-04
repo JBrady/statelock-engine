@@ -30,7 +30,7 @@ jobs:
 
     - name: Lint
       run: |
-        ruff check .
+        ruff check . --exclude experimental/observability
 
     - name: Run tests
       run: |

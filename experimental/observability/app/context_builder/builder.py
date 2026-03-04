@@ -157,6 +157,7 @@ def build_working_context(
     spans = _active_spans(db, conversation.conversation_id)
     span_by_id = {s.span_id: s for s in spans}
     now = datetime.utcnow()
+    off_thread_similarity_threshold = min(1.0, max(0.0, 0.5 + opts.similarity_threshold_delta))
 
     scored: list[tuple[Span, float, float, float, bool]] = []
     for span in spans:
@@ -165,7 +166,7 @@ def build_working_context(
         if span.thread_id != target_thread_id:
             base, rel, rec = _score_span(span, query, now)
             # keep off-thread spans only when query similarity is meaningful.
-            if rel < 0.5:
+            if rel < off_thread_similarity_threshold:
                 continue
             base *= 0.35
             scored.append((span, base, rel, rec, True))

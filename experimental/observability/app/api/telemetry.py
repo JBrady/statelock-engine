@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.backends.stub_llm import StubLLMBackend
-from app.db.models import Conversation, TelemetrySnapshot
+from app.db.models import Conversation, TelemetrySnapshot, Turn
 from app.deps import db_session, require_api_key
 from app.schemas import TelemetryListResponse, TelemetrySnapshotRequest
 from app.services.serializers import telemetry_snapshot_out
@@ -27,11 +27,14 @@ def telemetry(conversation_id: str, payload: TelemetrySnapshotRequest, db: Sessi
     conversation = db.get(Conversation, conversation_id)
     if not conversation:
         raise HTTPException(status_code=404, detail="Conversation not found")
+    turn = db.get(Turn, payload.turn_id)
+    if not turn or turn.conversation_id != conversation_id:
+        raise HTTPException(status_code=404, detail="Turn not found")
 
     snapshots = run_telemetry(
         db,
         conversation=conversation,
-        turn_id=payload.turn_id,
+        turn_id=turn.turn_id,
         query=payload.query,
         mode_override=payload.mode,
         backend=backend,
