@@ -1,12 +1,24 @@
-# statelock-seed Client (Archived Example)
+# statelock-seed Client Example
 
-`statelock-seed` is treated as an exploratory client prototype, not the canonical product codebase.
+This directory is the canonical home for the seed TypeScript client used to test local-first model routing patterns.
 
-Canonical repo for StateLock product/API work:
+It is a consumer example, not runtime server code.
 
-- `JBrady/statelock-engine`
+## Scope
 
-If you keep `statelock-seed`, use it only as a consumer example against:
+- calls LiteLLM chat-completions (`http://localhost:4000/v1/chat/completions`)
+- demonstrates local-first fallback model selection
+- can be used alongside StateLock Core Track APIs
 
-- StateLock memory API (`http://127.0.0.1:8000`)
-- LiteLLM model router (`http://127.0.0.1:4000/v1`)
+## Files
+
+- `src/client.ts`
+- `package.json`
+- `tsconfig.json`
+
+## Run
+
+```bash
+npm install
+npx tsx src/client.ts "Say hi in one sentence"
+```
