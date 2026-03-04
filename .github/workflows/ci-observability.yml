@@ -1,0 +1,36 @@
+name: CI Observability
+
+on:
+  push:
+    branches: [ "main", "master" ]
+    paths:
+      - "experimental/observability/**"
+  pull_request:
+    branches: [ "main", "master" ]
+    paths:
+      - "experimental/observability/**"
+  workflow_dispatch:
+
+jobs:
+  observability-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: experimental/observability
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install observability dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run observability tests
+        run: |
+          pytest -q

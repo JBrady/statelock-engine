@@ -3,8 +3,13 @@ name: CI
 on:
   push:
     branches: [ "main", "master" ]
+    paths-ignore:
+      - "experimental/observability/**"
   pull_request:
     branches: [ "main", "master" ]
+    paths-ignore:
+      - "experimental/observability/**"
+  workflow_dispatch:
 
 jobs:
   lint-and-test:
@@ -25,7 +30,7 @@ jobs:
 
     - name: Lint
       run: |
-        ruff check .
+        ruff check . --exclude experimental/observability
 
     - name: Run tests
       run: |

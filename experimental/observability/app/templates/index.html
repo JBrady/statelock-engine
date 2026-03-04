@@ -1,0 +1,181 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Statelock Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>Statelock v2 Dashboard</h1>
+  <p>API key is read from <code>localStorage.api_key</code> or defaults to <code>dev-key</code>.</p>
+  <p><a href="/learn">Learn</a> | <a href="/threads">Threads</a> | <a href="/memory">Memory</a> | <a href="/spans">Spans</a></p>
+
+  <details class="help-panel" open>
+    <summary><strong>What is this tool?</strong></summary>
+    <p>
+      StateLock helps AI assistants stay on-topic during long conversations by selecting the right context,
+      measuring influence, and surfacing when conversation memory drifts.
+    </p>
+  </details>
+
+  {% if show_welcome %}
+  <section>
+    <h2>Welcome to StateLock</h2>
+    <ol>
+      <li>Create a conversation.</li>
+      <li>Add turns.</li>
+      <li>Run segmentation.</li>
+      <li>Build a working context.</li>
+      <li>Run telemetry.</li>
+    </ol>
+  </section>
+  {% endif %}
+
+  <section>
+    <h2>Conversations</h2>
+    <select id="conv"></select>
+    <button id="refresh">Refresh</button>
+  </section>
+
+  <section>
+    <h2>Target Thread + Health</h2>
+    <div id="health"></div>
+  </section>
+
+  <section>
+    <h2>Recent Run Groups</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th><span title="A run group is one telemetry invocation producing one or more snapshots.">Run group</span></th>
+          <th><span title="Conversation thread the working context targeted.">Target thread</span></th>
+          <th>Coverage</th>
+          <th><span title="Off-thread coupling: influence mass outside target thread.">Coff</span></th>
+          <th><span title="Influence entropy: how spread influence is across spans.">Entropy (H)</span></th>
+          <th>Alarms</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody id="run-groups"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Latest Influence Weights</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Method</th>
+          <th><span title="Ablation removes one span and measures output divergence.">Ablation/Proxy</span></th>
+          <th><span title="A span is a segmented chunk of conversation text.">Span</span></th>
+          <th><span title="A thread is a topical cluster of spans.">Thread</span></th>
+          <th>w</th>
+          <th>raw</th>
+        </tr>
+      </thead>
+      <tbody id="influence"></tbody>
+    </table>
+  </section>
+
+  <script>
+    const API_KEY = localStorage.getItem('api_key') || 'dev-key';
+
+    async function api(path) {
+      const r = await fetch(path, { headers: { Authorization: `Bearer ${API_KEY}` }});
+      if (!r.ok) throw new Error(await r.text());
+      return await r.json();
+    }
+
+    async function loadConversations() {
+      const conv = document.getElementById('conv');
+      conv.innerHTML = '';
+      const list = await api('/v2/conversations');
+      list.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.conversation_id;
+        opt.textContent = `${c.title} (${c.conversation_id.slice(0,8)})`;
+        conv.appendChild(opt);
+      });
+      return list;
+    }
+
+    function telemetryLabel(s) {
+      if (s.method === 'grad_proxy') return `Proxy (${s.proxy_kind || 'unknown'})`;
+      return 'Measured (ablation_kl)';
+    }
+
+    function alarmList(alarms) {
+      const keys = Object.entries(alarms || {}).filter(([_, v]) => !!v).map(([k]) => k);
+      return keys.length ? keys.join(', ') : 'none';
+    }
+
+    async function loadRunGroups() {
+      const id = document.getElementById('conv').value;
+      if (!id) return;
+
+      const data = await api(`/v2/conversations/${id}/telemetry/run_groups/recent?limit=20`);
+      const rows = data.run_groups || [];
+      const tbody = document.getElementById('run-groups');
+      tbody.innerHTML = '';
+
+      rows.forEach(g => {
+        const coverage = `${g.has_proxy ? 'proxy' : '-'} / ${g.has_ablation ? 'ablation' : '-'}`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${g.created_at_max}</td>
+          <td>${g.run_group_id}</td>
+          <td>${g.target_thread_id}</td>
+          <td>${coverage}</td>
+          <td>${Number(g.Coff).toFixed(4)}</td>
+          <td>${Number(g.H).toFixed(4)}</td>
+          <td>${alarmList(g.alarms)}</td>
+          <td><a href="/telemetry/run_group/${g.run_group_id}?conversation_id=${encodeURIComponent(id)}">Open</a></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadLatestTelemetry() {
+      const id = document.getElementById('conv').value;
+      if (!id) return;
+      const data = await api(`/v2/conversations/${id}/telemetry/latest`);
+      const snaps = data.snapshots || [];
+
+      const health = document.getElementById('health');
+      if (!snaps.length) {
+        health.textContent = 'No telemetry snapshots yet.';
+      } else {
+        const s = snaps[0];
+        health.textContent = `target=${s.target_thread_id} Coff=${Number(s.metrics.off_thread_coupling_Coff || 0).toFixed(3)} H=${Number(s.metrics.influence_entropy_H || 0).toFixed(3)}`;
+      }
+
+      const tbody = document.getElementById('influence');
+      tbody.innerHTML = '';
+      snaps.forEach(s => {
+        (s.influence.weights || []).forEach(w => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${telemetryLabel(s)}</td><td>${s.method}</td><td>${s.proxy_kind || ''}</td><td>${w.span_id}</td><td>${w.thread_id}</td><td>${Number(w.w).toFixed(4)}</td><td>${Number(w.raw_score).toFixed(4)}</td>`;
+          tbody.appendChild(tr);
+        });
+      });
+    }
+
+    document.getElementById('refresh').onclick = async () => {
+      await loadRunGroups();
+      await loadLatestTelemetry();
+    };
+
+    (async () => {
+      const conversations = await loadConversations();
+      if (!conversations.length) return;
+      await loadRunGroups();
+      await loadLatestTelemetry();
+    })().catch(err => {
+      console.error(err);
+      alert(err.message);
+    });
+  </script>
+</body>
+</html>

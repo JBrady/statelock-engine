@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Span Browser</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>Span Browser</h1>
+  <p><a href="/">Back</a></p>
+
+  <section>
+    <label>Conversation <select id="conv"></select></label>
+    <label>Thread <select id="thread"><option value="">all</option></select></label>
+    <label><input id="include-quarantined" type="checkbox" /> include quarantined</label>
+    <label>Sort
+      <select id="sort">
+        <option value="recency">recency</option>
+        <option value="trust">trust</option>
+      </select>
+    </label>
+    <button id="load">Load</button>
+  </section>
+
+  <section>
+    <table>
+      <thead>
+        <tr>
+          <th>span_id</th>
+          <th>thread</th>
+          <th>trust</th>
+          <th>created_at</th>
+          <th>quarantined_until</th>
+          <th>text</th>
+          <th>action</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </section>
+
+  <script>
+    const API_KEY = localStorage.getItem('api_key') || 'dev-key';
+
+    async function api(path, options = {}) {
+      const headers = { Authorization: `Bearer ${API_KEY}` };
+      if (options.body) headers['content-type'] = 'application/json';
+      const r = await fetch(path, { ...options, headers: { ...headers, ...(options.headers || {}) } });
+      if (!r.ok) throw new Error(await r.text());
+      return await r.json();
+    }
+
+    async function loadConversations() {
+      const list = await api('/v2/conversations');
+      const conv = document.getElementById('conv');
+      conv.innerHTML = '';
+      list.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.conversation_id;
+        o.textContent = `${c.title} (${c.conversation_id.slice(0, 8)})`;
+        conv.appendChild(o);
+      });
+      return list;
+    }
+
+    async function loadThreads() {
+      const cid = document.getElementById('conv').value;
+      if (!cid) return;
+      const threads = await api(`/v2/conversations/${cid}/threads`);
+      const thread = document.getElementById('thread');
+      const current = thread.value;
+      thread.innerHTML = '<option value="">all</option>';
+      threads.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t.thread_id;
+        o.textContent = t.thread_id;
+        thread.appendChild(o);
+      });
+      thread.value = Array.from(thread.options).some(o => o.value === current) ? current : '';
+    }
+
+    function sortedSpans(spans, sortBy) {
+      if (sortBy === 'trust') {
+        return spans.slice().sort((a, b) => Number(b.trust?.score || 0) - Number(a.trust?.score || 0));
+      }
+      return spans.slice().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    }
+
+    async function unquarantine(cid, spanId) {
+      await api(`/v2/conversations/${cid}/spans/${spanId}/unquarantine`, { method: 'POST' });
+      await loadSpans();
+    }
+
+    async function loadSpans() {
+      const cid = document.getElementById('conv').value;
+      if (!cid) return;
+      const include = document.getElementById('include-quarantined').checked;
+      const thread = document.getElementById('thread').value;
+      const sortBy = document.getElementById('sort').value;
+
+      const qs = new URLSearchParams();
+      if (thread) qs.set('thread_id', thread);
+      qs.set('include_quarantined', include ? 'true' : 'false');
+
+      let rows = await api(`/v2/conversations/${cid}/spans?${qs.toString()}`);
+      rows = sortedSpans(rows, sortBy);
+
+      const tbody = document.getElementById('rows');
+      tbody.innerHTML = '';
+      rows.forEach(s => {
+        const tr = document.createElement('tr');
+        const isQuarantined = !!s.quarantined_until;
+        tr.innerHTML = `
+          <td>${s.span_id}</td>
+          <td>${s.thread_id}</td>
+          <td>${Number(s.trust?.score || 0).toFixed(2)}</td>
+          <td>${s.created_at}</td>
+          <td>${s.quarantined_until || ''}</td>
+          <td>${String(s.text || '').slice(0, 180)}</td>
+          <td>${isQuarantined ? `<button data-unq="${s.span_id}">Unquarantine</button>` : ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('button[data-unq]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const spanId = btn.getAttribute('data-unq');
+          unquarantine(cid, spanId).catch(err => alert(err.message));
+        });
+      });
+    }
+
+    document.getElementById('load').onclick = () => loadSpans().catch(err => alert(err.message));
+    document.getElementById('conv').onchange = () => {
+      loadThreads().then(loadSpans).catch(err => alert(err.message));
+    };
+
+    (async () => {
+      const list = await loadConversations();
+      if (!list.length) return;
+      await loadThreads();
+      await loadSpans();
+    })().catch(err => alert(err.message));
+  </script>
+</body>
+</html>
