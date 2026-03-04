@@ -30,3 +30,4 @@ docs/website-routing.md
 .env
 .env.*
 !.env.example
+.envrc
