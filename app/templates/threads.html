@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Threads</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>Threads</h1>
+  <p><a href="/">Back</a></p>
+  <select id="conv"></select>
+  <button id="load">Load</button>
+  <table>
+    <thead><tr><th>Thread</th><th>Summary</th><th>Span Count</th><th>Last Activity</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <script>
+    const API_KEY = localStorage.getItem('api_key') || 'dev-key';
+    async function api(path) {
+      const r = await fetch(path, { headers: { Authorization: `Bearer ${API_KEY}` }});
+      if (!r.ok) throw new Error(await r.text());
+      return await r.json();
+    }
+
+    async function initConvs() {
+      const list = await api('/v2/conversations');
+      const select = document.getElementById('conv');
+      select.innerHTML = '';
+      list.forEach(c => {
+        const o = document.createElement('option');
+        o.value = c.conversation_id;
+        o.textContent = c.title;
+        select.appendChild(o);
+      });
+    }
+
+    async function loadThreads() {
+      const id = document.getElementById('conv').value;
+      const rows = await api(`/v2/conversations/${id}/threads`);
+      const tbody = document.getElementById('rows');
+      tbody.innerHTML = '';
+      rows.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${t.thread_id}</td><td>${t.summary || ''}</td><td>${t.span_count}</td><td>${t.last_activity_at}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('load').onclick = () => loadThreads().catch(err => alert(err.message));
+    initConvs().then(loadThreads).catch(err => alert(err.message));
+  </script>
+</body>
+</html>

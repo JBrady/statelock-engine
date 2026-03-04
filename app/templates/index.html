@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Statelock Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>Statelock v2 Dashboard</h1>
+  <p>API key is read from <code>localStorage.api_key</code> or defaults to <code>dev-key</code>.</p>
+
+  <section>
+    <h2>Conversations</h2>
+    <select id="conv"></select>
+    <button id="refresh">Refresh</button>
+  </section>
+
+  <section>
+    <h2>Target Thread + Health</h2>
+    <div id="health"></div>
+  </section>
+
+  <section>
+    <h2>Influence Table</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Label</th><th>Method</th><th>Proxy Kind</th><th>Span</th><th>Thread</th><th>w</th><th>raw</th>
+        </tr>
+      </thead>
+      <tbody id="influence"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Spans</h2>
+    <label>Thread filter <input id="threadFilter" placeholder="thread id" /></label>
+    <label><input id="includeQ" type="checkbox" /> Include quarantined</label>
+    <button id="loadSpans">Load Spans</button>
+    <table>
+      <thead><tr><th>Span</th><th>Thread</th><th>Q Until</th><th>Action</th></tr></thead>
+      <tbody id="spans"></tbody>
+    </table>
+  </section>
+
+  <script>
+    const API_KEY = localStorage.getItem('api_key') || 'dev-key';
+
+    async function api(path) {
+      const r = await fetch(path, { headers: { Authorization: `Bearer ${API_KEY}` }});
+      if (!r.ok) throw new Error(await r.text());
+      return await r.json();
+    }
+
+    async function loadConversations() {
+      const conv = document.getElementById('conv');
+      conv.innerHTML = '';
+      const list = await api('/v2/conversations');
+      list.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.conversation_id;
+        opt.textContent = `${c.title} (${c.conversation_id.slice(0,8)})`;
+        conv.appendChild(opt);
+      });
+    }
+
+    function telemetryLabel(s) {
+      if (s.method === 'grad_proxy') return `Proxy (${s.proxy_kind || 'unknown'})`;
+      return 'Measured (ablation_kl)';
+    }
+
+    async function loadTelemetry() {
+      const id = document.getElementById('conv').value;
+      if (!id) return;
+      const data = await api(`/v2/conversations/${id}/telemetry/latest`);
+      const snaps = data.snapshots || [];
+      const health = document.getElementById('health');
+      if (!snaps.length) {
+        health.textContent = 'No telemetry snapshots yet.';
+      } else {
+        const s = snaps[0];
+        health.textContent = `target=${s.target_thread_id} Coff=${s.metrics.off_thread_coupling_Coff?.toFixed?.(3) ?? s.metrics.off_thread_coupling_Coff} H=${s.metrics.influence_entropy_H?.toFixed?.(3) ?? s.metrics.influence_entropy_H}`;
+      }
+
+      const tbody = document.getElementById('influence');
+      tbody.innerHTML = '';
+      snaps.forEach(s => {
+        (s.influence.weights || []).forEach(w => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${telemetryLabel(s)}</td><td>${s.method}</td><td>${s.proxy_kind || ''}</td><td>${w.span_id}</td><td>${w.thread_id}</td><td>${Number(w.w).toFixed(4)}</td><td>${Number(w.raw_score).toFixed(4)}</td>`;
+          tbody.appendChild(tr);
+        });
+      });
+    }
+
+    async function unquarantine(convId, spanId) {
+      const r = await fetch(`/v2/conversations/${convId}/spans/${spanId}/unquarantine`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${API_KEY}` }
+      });
+      if (!r.ok) {
+        alert(await r.text());
+        return;
+      }
+      await loadSpans();
+    }
+
+    async function loadSpans() {
+      const id = document.getElementById('conv').value;
+      if (!id) return;
+      const tid = document.getElementById('threadFilter').value;
+      const includeQ = document.getElementById('includeQ').checked;
+      const qs = new URLSearchParams();
+      if (tid) qs.set('thread_id', tid);
+      qs.set('include_quarantined', includeQ ? 'true' : 'false');
+      const spans = await api(`/v2/conversations/${id}/spans?${qs.toString()}`);
+      const tbody = document.getElementById('spans');
+      tbody.innerHTML = '';
+      spans.forEach(s => {
+        const tr = document.createElement('tr');
+        const q = s.quarantined_until || '';
+        tr.innerHTML = `<td>${s.span_id}</td><td>${s.thread_id}</td><td>${q}</td><td></td>`;
+        const td = tr.children[3];
+        const btn = document.createElement('button');
+        btn.textContent = 'Unquarantine';
+        btn.onclick = () => unquarantine(id, s.span_id);
+        td.appendChild(btn);
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('refresh').onclick = async () => { await loadTelemetry(); };
+    document.getElementById('loadSpans').onclick = async () => { await loadSpans(); };
+
+    (async () => {
+      await loadConversations();
+      await loadTelemetry();
+      await loadSpans();
+    })().catch(err => {
+      console.error(err);
+      alert(err.message);
+    });
+  </script>
+</body>
+</html>
