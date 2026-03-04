@@ -1,0 +1,506 @@
+# statelock-v2-mvp.yaml
+# Purpose: Context hygiene + measurable context-rot telemetry + ReMe-style memory distillation
+# Scope: MVP that is small, testable, and “one-shot Codex” friendly.
+# Non-goals: full multi-agent orchestration, RL training loops, full RAG infra, UI polish beyond a basic dashboard.
+
+meta:
+  name: statelock-v2-mvp
+  version: 0.1.0
+  timezone: America/Los_Angeles
+  language: en
+  repo:
+    suggested_name: statelock-v2
+    stack:
+      api: FastAPI
+      worker: asyncio + background tasks
+      db: SQLite (dev) -> Postgres (prod-ready schema)
+      vector_store: SQLite+FAISS (dev) optional, can stub
+      ui: Next.js (minimal dashboard) OR FastAPI + Jinja (ultra minimal)
+  budgets:
+    max_context_tokens_default: 6000
+    max_context_tokens_hard: 12000
+    telemetry:
+      cheap_proxy_every_turn: true
+      expensive_ablation_every_n_turns: 8
+      expensive_ablation_span_limit: 12
+
+principles:
+  - Keep context selection deterministic and debuggable.
+  - Treat “wrong coupling” as the primary rot signal.
+  - Store episodes cheaply. Distill later into semantic and procedural memory.
+  - No silent behavior changes. All heuristics are versioned and logged.
+
+domain_model:
+  identifiers:
+    conversation_id: uuid
+    turn_id: uuid
+    span_id: uuid
+    thread_id: string
+    memory_id: uuid
+
+  entities:
+    Conversation:
+      fields:
+        conversation_id: uuid
+        created_at: datetime
+        updated_at: datetime
+        title: string
+        tags: string[]
+        notes: string
+        settings:
+          max_context_tokens: int
+          telemetry_mode: enum[off, minimal, standard, verbose]
+          target_thread_mode: enum[auto, pinned]
+          pinned_thread_id: string|null
+
+    Turn:
+      fields:
+        turn_id: uuid
+        conversation_id: uuid
+        created_at: datetime
+        speaker: enum[user, assistant, tool]
+        text: string
+        tool_name: string|null
+        tool_payload_ref: string|null
+        meta:
+          token_count: int|null
+          thread_hint: string|null
+          importance_hint: float|null
+
+    Span:
+      fields:
+        span_id: uuid
+        conversation_id: uuid
+        created_at: datetime
+        source_turn_ids: uuid[]
+        text: string
+        token_count_est: int
+        thread_id: string
+        span_type: enum[dialog, tool_output, system_note, distilled_fact, distilled_procedure]
+        trust:
+          score: float        # 0..1
+          reason: string
+        recency:
+          last_used_at: datetime|null
+          first_seen_at: datetime
+        links:
+          semantic_neighbors: span_id[]
+          provenance: span_id[]  # upstream dependencies (tool outputs etc.)
+          contradictions: span_id[]
+
+    Thread:
+      fields:
+        thread_id: string
+        conversation_id: uuid
+        name: string
+        summary: string
+        created_at: datetime
+        updated_at: datetime
+        stats:
+          span_count: int
+          last_activity_at: datetime
+
+    WorkingContext:
+      fields:
+        conversation_id: uuid
+        built_at: datetime
+        target_thread_id: string
+        selected_span_ids: span_id[]
+        assembled_text: string
+        token_count_est: int
+        rationale:
+          selection_method: enum[heuristic, hybrid]
+          selection_log: object
+
+    TelemetrySnapshot:
+      fields:
+        conversation_id: uuid
+        turn_id: uuid
+        created_at: datetime
+        target_thread_id: string
+        method: enum[grad_proxy, ablation_kl]
+        spans_considered: span_id[]
+        influence:
+          weights:
+            - span_id: uuid
+              w: float           # normalized influence
+              raw_score: float    # unnormalized
+              thread_id: string
+        metrics:
+          influence_entropy_H: float
+          off_thread_coupling_Coff: float
+          topk_threads:
+            - thread_id: string
+              W: float
+          alarms:
+            anchor_rot: bool
+            smear_rot: bool
+            off_thread_spike: bool
+        actions_taken:
+          rebuilt_context: bool
+          quarantined_spans: span_id[]
+          notes: string
+
+    MemoryEntry:
+      fields:
+        memory_id: uuid
+        conversation_id: uuid|null  # null for global
+        created_at: datetime
+        updated_at: datetime
+        memory_type: enum[episodic, semantic, procedural]
+        title: string
+        content: string
+        tags: string[]
+        strength: float     # 0..1
+        status: enum[active, deprecated, quarantined]
+        provenance:
+          source_turn_ids: uuid[]
+          source_span_ids: uuid[]
+        eval:
+          success_count: int
+          failure_count: int
+          last_applied_at: datetime|null
+
+pipelines:
+  segmentation:
+    description: Turn text into overlapping spans and assign threads.
+    params:
+      span_tokens_target: 80
+      span_overlap_tokens: 20
+      min_span_tokens: 30
+      thread_assignment:
+        mode: hybrid
+        hybrid:
+          - rule: explicit_user_tags
+          - rule: similarity_to_thread_summaries
+          - rule: fallback_new_thread_if_low_similarity
+        similarity:
+          embed_model: "local:minilm"   # can stub
+          threshold_assign: 0.42
+          threshold_new_thread: 0.28
+
+  target_thread_inference:
+    description: Determine target thread for the current user query.
+    mode:
+      - auto: similarity(query, thread.summary)
+      - pinned: use conversation.settings.pinned_thread_id if set
+    params:
+      similarity_threshold: 0.35
+      tie_break:
+        - most_recent_activity
+        - highest_overlap_with_recent_turn
+
+  working_context_builder:
+    description: Build the model-visible context Z_t from spans + memory.
+    stages:
+      - select_procedural_memory:
+          rule: top procedural entries matching query/thread
+          max_items: 2
+      - select_evidence_spans:
+          rule: top spans in target thread plus provenance chain
+          max_spans: 24
+      - add_guardrails:
+          include: system_policies + short recap header
+          max_tokens: 400
+      - enforce_budget:
+          strategy:
+            - drop_low_trust
+            - drop_old_unused
+            - drop_low_relevance
+            - compress_long_tool_outputs (truncate + cite)
+          stop_when: token_count_est <= max_context_tokens
+    output_format:
+      header: |
+        You are the assistant. Use ONLY the provided context.
+        If you need missing details, ask a single focused question.
+      sections:
+        - "Procedures"
+        - "Key Facts"
+        - "Recent Turns"
+        - "Evidence Spans"
+        - "Tool Outputs (truncated)"
+      span_citations:
+        format: "[span:<span_id> thread:<thread_id>]"
+
+  telemetry:
+    description: Measure dependence of next action on spans and detect rot.
+    modes:
+      minimal:
+        every_turn: grad_proxy
+        ablation_kl: off
+      standard:
+        every_turn: grad_proxy
+        ablation_kl:
+          every_n_turns: 8
+          max_spans: 12
+      verbose:
+        every_turn: grad_proxy
+        ablation_kl:
+          every_n_turns: 2
+          max_spans: 16
+
+    grad_proxy:
+      description: Cheap influence estimate using gradient norm proxy.
+      method:
+        - choose_target:
+            default: next_token_logprob_of_first_generated_token
+            fallback: negative_logprob_of_assistant_first_token
+        - compute_span_scores:
+            score(span) = || dL / dE(span) ||_2
+        - normalize:
+            w_i = score_i / sum(score)
+      notes:
+        - Implementation can approximate gradients via framework hooks or model backend support.
+        - If backend cannot provide gradients, fall back to attention-based proxy.
+
+    ablation_kl:
+      description: Expensive influence measurement via KL divergence ablations.
+      method:
+        - assemble_baseline_logits: p(.|Z)
+        - for each span in candidate_set:
+            build Z_without_span
+            compute p(.|Z_without)
+            influence = KL(p_baseline || p_without)
+        - normalize to w_i
+      candidate_set:
+        selection:
+          - top_by_relevance: 6
+          - top_by_grad_proxy: 6
+          - must_include: newest_user_turn_span + most_recent_tool_span
+        max_total: 12
+
+    metrics:
+      influence_entropy_H:
+        formula: H = -sum(w_i * log(w_i + eps))
+        eps: 1e-12
+      off_thread_coupling_Coff:
+        formula:
+          W(target_thread) = sum(w_i where span.thread_id == target_thread_id)
+          Coff = 1 - W(target_thread)
+      alarms:
+        anchor_rot:
+          condition:
+            - max(w_i) >= 0.55
+            - and top_span_age_minutes > 120
+            - and top_span_thread_id != target_thread_id
+        smear_rot:
+          condition:
+            - H >= 2.0
+            - and number_of_spans_with_w_gt_0_05 >= 10
+        off_thread_spike:
+          condition:
+            - Coff >= 0.35
+            - and delta_Coff >= 0.15 compared to last snapshot
+
+    governance_actions:
+      on_off_thread_spike:
+        - quarantine_off_thread_spans:
+            rule: quarantine spans from non-target threads with w_i >= 0.08
+            duration_minutes: 60
+        - rebuild_context:
+            strategy: restrict_to_target_thread + provenance_only
+      on_anchor_rot:
+        - downweight_span:
+            rule: reduce trust.score by 0.2 (min 0)
+        - rebuild_context
+      on_smear_rot:
+        - tighten_selection:
+            changes:
+              max_spans: -6
+              similarity_threshold: +0.08
+        - rebuild_context
+
+  distillation_reme:
+    description: Convert episodes into semantic + procedural memory entries after completion.
+    trigger:
+      - when: user_marks_task_done
+      - or: assistant_outputs_done_marker
+      - or: inactivity_minutes >= 120
+    steps:
+      - extract_episode:
+          include_turns: last 40
+      - propose_memories:
+          outputs:
+            semantic_facts:
+              max_items: 8
+              format: bullet facts with sources
+            procedural_plays:
+              max_items: 3
+              format: step-by-step procedures with applicability and failure modes
+      - critic_pass:
+          checks:
+            - redundancy_merge
+            - contradiction_with_existing
+            - outdated_flagging
+      - write_memory_entries:
+          memory_type: semantic, procedural
+          initial_strength: 0.5
+          status: active
+
+api:
+  base_path: /v2
+  auth:
+    mode: local_api_key
+    header: "Authorization: Bearer <key>"
+  endpoints:
+    - name: create_conversation
+      method: POST
+      path: /conversations
+      body:
+        title: string
+        settings: object|null
+      returns: Conversation
+
+    - name: add_turn
+      method: POST
+      path: /conversations/{conversation_id}/turns
+      body:
+        speaker: enum[user, assistant, tool]
+        text: string
+        tool_name: string|null
+        tool_payload_ref: string|null
+        thread_hint: string|null
+      returns: Turn
+
+    - name: segment_conversation
+      method: POST
+      path: /conversations/{conversation_id}/segment
+      body:
+        mode: enum[incremental, full]
+      returns:
+        spans_created: int
+        threads: Thread[]
+
+    - name: build_working_context
+      method: POST
+      path: /conversations/{conversation_id}/working_context
+      body:
+        query: string
+        target_thread_mode: enum[auto, pinned]|null
+        pinned_thread_id: string|null
+        max_context_tokens: int|null
+      returns: WorkingContext
+
+    - name: telemetry_snapshot
+      method: POST
+      path: /conversations/{conversation_id}/telemetry
+      body:
+        turn_id: uuid
+        query: string
+        mode: enum[minimal, standard, verbose]|null
+      returns: TelemetrySnapshot
+
+    - name: governance_apply
+      method: POST
+      path: /conversations/{conversation_id}/governance/apply
+      body:
+        snapshot_id: uuid|null
+        actions: object|null   # optional override
+      returns:
+        rebuilt_context: bool
+        quarantined_spans: span_id[]
+        working_context: WorkingContext
+
+    - name: memory_list
+      method: GET
+      path: /memory
+      query:
+        conversation_id: uuid|null
+        memory_type: enum[episodic, semantic, procedural]|null
+        status: enum[active, deprecated, quarantined]|null
+      returns: MemoryEntry[]
+
+    - name: memory_distill
+      method: POST
+      path: /conversations/{conversation_id}/memory/distill
+      body:
+        trigger: enum[user_done, assistant_done, timer]
+      returns:
+        created_memory_ids: uuid[]
+        merged_memory_ids: uuid[]
+        quarantined_memory_ids: uuid[]
+
+ui:
+  dashboard:
+    pages:
+      - route: /
+        widgets:
+          - conversation_selector
+          - current_target_thread
+          - health_graph:
+              series: [Coff, H, alarms]
+          - influence_table:
+              columns: [span_id, thread_id, w, raw_score, age_minutes, trust]
+          - actions_log:
+              show: governance actions taken
+      - route: /threads
+        widgets:
+          - thread_list
+          - thread_summary_editor
+          - thread_activity_timeline
+      - route: /memory
+        widgets:
+          - semantic_entries
+          - procedural_entries
+          - status_controls: [deprecate, quarantine, boost_strength]
+
+integrations:
+  llm_backend:
+    modes:
+      - api_stub:
+          description: returns mock logits for local testing
+      - local_hf_small:
+          model: "gpt2"  # dev only
+          note: gradients available
+      - openai_api:
+          model: "gpt-5.3-codex"
+          note: logits/gradients may not be available; use attention proxy or ablation_kl with sampled spans.
+
+acceptance_tests:
+  - name: cross_thread_coupling_detects_off_topic
+    steps:
+      - create conversation with two threads: "networking" and "cosmology"
+      - add turns with both topics
+      - ask a new networking query
+      - build working context targeting networking
+      - run telemetry snapshot
+    asserts:
+      - target_thread_id == "networking"
+      - off_thread_coupling_Coff <= 0.25
+
+  - name: governance_rebuilds_on_spike
+    steps:
+      - inject a conversation where old off-thread span is highly influential
+      - run telemetry in standard mode
+      - apply governance actions
+    asserts:
+      - actions_taken.rebuilt_context == true
+      - quarantined_spans length >= 1
+      - new working_context.selected_span_ids are mostly target thread
+
+  - name: distillation_creates_procedural_memory
+    steps:
+      - run a short task completion
+      - call memory_distill
+    asserts:
+      - at least 1 procedural memory entry created
+      - procedural memory has applicability + steps + failure modes fields in content
+
+nonfunctional:
+  logging:
+    - all selection decisions logged with reasons and scores
+    - telemetry snapshots stored and queryable
+  determinism:
+    - selection uses seeded randomness only when sampling candidates
+  security:
+    - local API key auth
+    - redact tool outputs marked sensitive (future)
+  performance:
+    - grad_proxy per turn under 300ms on dev model
+    - ablation_kl runs bounded by max spans and cached baseline logits
+
+out_of_scope_for_mvp:
+  - full vector DB production setup
+  - multi-agent scheduling
+  - automatic contradiction resolution beyond marking links
+  - RL-based memory strength updates

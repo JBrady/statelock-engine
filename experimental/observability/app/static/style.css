@@ -1,0 +1,42 @@
+body {
+  font-family: "Iowan Old Style", "Palatino", serif;
+  margin: 24px;
+  color: #1f2a1f;
+  background: linear-gradient(180deg, #f6f4eb 0%, #eef3ea 100%);
+}
+
+h1, h2 {
+  margin-bottom: 8px;
+}
+
+section {
+  border: 1px solid #aab7a1;
+  background: #fefdf8;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+th, td {
+  border: 1px solid #c8d2c1;
+  padding: 6px;
+  font-size: 12px;
+  vertical-align: top;
+}
+
+button {
+  background: #355b3e;
+  color: #fff;
+  border: 0;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+input, select {
+  margin-right: 8px;
+}
