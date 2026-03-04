@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.api import context, conversations, dashboard, debug, governance, memory, segmentation, spans, telemetry, turns
 from app.config import settings
 from app.db.init_db import init_db
+from app.runtime import CWD, GIT_SHA, STARTED_AT
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,9 @@ def health() -> dict:
         "resolved_db_url": settings.db_url,
         "sqlite_path": settings.sqlite_path,
         "pid": os.getpid(),
+        "started_at": STARTED_AT.isoformat(),
+        "cwd": CWD,
+        "git_sha": GIT_SHA,
     }
 
 

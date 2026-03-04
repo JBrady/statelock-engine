@@ -8,6 +8,28 @@
 <body>
   <h1>Statelock v2 Dashboard</h1>
   <p>API key is read from <code>localStorage.api_key</code> or defaults to <code>dev-key</code>.</p>
+  <p><a href="/learn">Learn</a> | <a href="/threads">Threads</a> | <a href="/memory">Memory</a> | <a href="/spans">Spans</a></p>
+
+  <details class="help-panel" open>
+    <summary><strong>What is this tool?</strong></summary>
+    <p>
+      StateLock helps AI assistants stay on-topic during long conversations by selecting the right context,
+      measuring influence, and surfacing when conversation memory drifts.
+    </p>
+  </details>
+
+  {% if show_welcome %}
+  <section>
+    <h2>Welcome to StateLock</h2>
+    <ol>
+      <li>Create a conversation.</li>
+      <li>Add turns.</li>
+      <li>Run segmentation.</li>
+      <li>Build a working context.</li>
+      <li>Run telemetry.</li>
+    </ol>
+  </section>
+  {% endif %}
 
   <section>
     <h2>Conversations</h2>
@@ -21,25 +43,39 @@
   </section>
 
   <section>
-    <h2>Influence Table</h2>
+    <h2>Recent Run Groups</h2>
     <table>
       <thead>
         <tr>
-          <th>Label</th><th>Method</th><th>Proxy Kind</th><th>Span</th><th>Thread</th><th>w</th><th>raw</th>
+          <th>Timestamp</th>
+          <th><span title="A run group is one telemetry invocation producing one or more snapshots.">Run group</span></th>
+          <th><span title="Conversation thread the working context targeted.">Target thread</span></th>
+          <th>Coverage</th>
+          <th><span title="Off-thread coupling: influence mass outside target thread.">Coff</span></th>
+          <th><span title="Influence entropy: how spread influence is across spans.">Entropy (H)</span></th>
+          <th>Alarms</th>
+          <th>Details</th>
         </tr>
       </thead>
-      <tbody id="influence"></tbody>
+      <tbody id="run-groups"></tbody>
     </table>
   </section>
 
   <section>
-    <h2>Spans</h2>
-    <label>Thread filter <input id="threadFilter" placeholder="thread id" /></label>
-    <label><input id="includeQ" type="checkbox" /> Include quarantined</label>
-    <button id="loadSpans">Load Spans</button>
+    <h2>Latest Influence Weights</h2>
     <table>
-      <thead><tr><th>Span</th><th>Thread</th><th>Q Until</th><th>Action</th></tr></thead>
-      <tbody id="spans"></tbody>
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Method</th>
+          <th><span title="Ablation removes one span and measures output divergence.">Ablation/Proxy</span></th>
+          <th><span title="A span is a segmented chunk of conversation text.">Span</span></th>
+          <th><span title="A thread is a topical cluster of spans.">Thread</span></th>
+          <th>w</th>
+          <th>raw</th>
+        </tr>
+      </thead>
+      <tbody id="influence"></tbody>
     </table>
   </section>
 
@@ -62,6 +98,7 @@
         opt.textContent = `${c.title} (${c.conversation_id.slice(0,8)})`;
         conv.appendChild(opt);
       });
+      return list;
     }
 
     function telemetryLabel(s) {
@@ -69,17 +106,49 @@
       return 'Measured (ablation_kl)';
     }
 
-    async function loadTelemetry() {
+    function alarmList(alarms) {
+      const keys = Object.entries(alarms || {}).filter(([_, v]) => !!v).map(([k]) => k);
+      return keys.length ? keys.join(', ') : 'none';
+    }
+
+    async function loadRunGroups() {
+      const id = document.getElementById('conv').value;
+      if (!id) return;
+
+      const data = await api(`/v2/conversations/${id}/telemetry/run_groups/recent?limit=20`);
+      const rows = data.run_groups || [];
+      const tbody = document.getElementById('run-groups');
+      tbody.innerHTML = '';
+
+      rows.forEach(g => {
+        const coverage = `${g.has_proxy ? 'proxy' : '-'} / ${g.has_ablation ? 'ablation' : '-'}`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${g.created_at_max}</td>
+          <td>${g.run_group_id}</td>
+          <td>${g.target_thread_id}</td>
+          <td>${coverage}</td>
+          <td>${Number(g.Coff).toFixed(4)}</td>
+          <td>${Number(g.H).toFixed(4)}</td>
+          <td>${alarmList(g.alarms)}</td>
+          <td><a href="/telemetry/run_group/${g.run_group_id}?conversation_id=${encodeURIComponent(id)}">Open</a></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function loadLatestTelemetry() {
       const id = document.getElementById('conv').value;
       if (!id) return;
       const data = await api(`/v2/conversations/${id}/telemetry/latest`);
       const snaps = data.snapshots || [];
+
       const health = document.getElementById('health');
       if (!snaps.length) {
         health.textContent = 'No telemetry snapshots yet.';
       } else {
         const s = snaps[0];
-        health.textContent = `target=${s.target_thread_id} Coff=${s.metrics.off_thread_coupling_Coff?.toFixed?.(3) ?? s.metrics.off_thread_coupling_Coff} H=${s.metrics.influence_entropy_H?.toFixed?.(3) ?? s.metrics.influence_entropy_H}`;
+        health.textContent = `target=${s.target_thread_id} Coff=${Number(s.metrics.off_thread_coupling_Coff || 0).toFixed(3)} H=${Number(s.metrics.influence_entropy_H || 0).toFixed(3)}`;
       }
 
       const tbody = document.getElementById('influence');
@@ -93,49 +162,16 @@
       });
     }
 
-    async function unquarantine(convId, spanId) {
-      const r = await fetch(`/v2/conversations/${convId}/spans/${spanId}/unquarantine`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${API_KEY}` }
-      });
-      if (!r.ok) {
-        alert(await r.text());
-        return;
-      }
-      await loadSpans();
-    }
-
-    async function loadSpans() {
-      const id = document.getElementById('conv').value;
-      if (!id) return;
-      const tid = document.getElementById('threadFilter').value;
-      const includeQ = document.getElementById('includeQ').checked;
-      const qs = new URLSearchParams();
-      if (tid) qs.set('thread_id', tid);
-      qs.set('include_quarantined', includeQ ? 'true' : 'false');
-      const spans = await api(`/v2/conversations/${id}/spans?${qs.toString()}`);
-      const tbody = document.getElementById('spans');
-      tbody.innerHTML = '';
-      spans.forEach(s => {
-        const tr = document.createElement('tr');
-        const q = s.quarantined_until || '';
-        tr.innerHTML = `<td>${s.span_id}</td><td>${s.thread_id}</td><td>${q}</td><td></td>`;
-        const td = tr.children[3];
-        const btn = document.createElement('button');
-        btn.textContent = 'Unquarantine';
-        btn.onclick = () => unquarantine(id, s.span_id);
-        td.appendChild(btn);
-        tbody.appendChild(tr);
-      });
-    }
-
-    document.getElementById('refresh').onclick = async () => { await loadTelemetry(); };
-    document.getElementById('loadSpans').onclick = async () => { await loadSpans(); };
+    document.getElementById('refresh').onclick = async () => {
+      await loadRunGroups();
+      await loadLatestTelemetry();
+    };
 
     (async () => {
-      await loadConversations();
-      await loadTelemetry();
-      await loadSpans();
+      const conversations = await loadConversations();
+      if (!conversations.length) return;
+      await loadRunGroups();
+      await loadLatestTelemetry();
     })().catch(err => {
       console.error(err);
       alert(err.message);

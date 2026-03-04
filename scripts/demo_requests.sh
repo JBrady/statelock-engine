@@ -3,10 +3,33 @@ set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://127.0.0.1:8000}"
 API_KEY="${API_KEY:-dev-key}"
+PRETTY=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --pretty)
+      PRETTY=1
+      shift
+      ;;
+    --base)
+      BASE_URL="$2"
+      shift 2
+      ;;
+    --token)
+      API_KEY="$2"
+      shift 2
+      ;;
+    *)
+      echo "Unknown option: $1" >&2
+      exit 1
+      ;;
+  esac
+done
+
 AUTH="Authorization: Bearer ${API_KEY}"
 
 print_json() {
-  if command -v jq >/dev/null 2>&1; then
+  if [[ "$PRETTY" -eq 1 ]] && command -v jq >/dev/null 2>&1; then
     jq . 2>/dev/null || cat
   else
     cat
@@ -22,22 +45,22 @@ run_call() {
   resp="$(curl -s "$@")"
   printf '%s\n' "$resp" | print_json
   echo ""
+  LAST_RESP="$resp"
 }
 
-echo ""
-echo "---- Create Conversation ----"
-CREATE_RESP="$(curl -s -X POST "$BASE_URL/v2/conversations" -H "$AUTH" -H 'content-type: application/json' -d '{"title":"demo"}')"
-printf '%s\n' "$CREATE_RESP" | print_json
-echo ""
-CID="$(printf '%s\n' "$CREATE_RESP" | python3 -c 'import sys,json; print(json.load(sys.stdin)["conversation_id"])')"
-echo "conversation_id=$CID"
-echo ""
+run_call "Create Conversation" \
+  -X POST "$BASE_URL/v2/conversations" \
+  -H "$AUTH" -H 'content-type: application/json' \
+  -d '{"title":"demo"}'
+CID="$(printf '%s\n' "$LAST_RESP" | python3 -c 'import sys,json; print(json.load(sys.stdin)["conversation_id"])')"
+echo "CID=$CID"
 
-echo "---- Add Turn ----"
-TURN_RESP="$(curl -s -X POST "$BASE_URL/v2/conversations/$CID/turns" -H "$AUTH" -H 'content-type: application/json' -d '{"speaker":"user","text":"Help debug packet loss","thread_hint":"networking"}')"
-printf '%s\n' "$TURN_RESP" | print_json
-echo ""
-TURN_ID="$(printf '%s\n' "$TURN_RESP" | python3 -c 'import sys,json; print(json.load(sys.stdin)["turn_id"])')"
+run_call "Add Turn" \
+  -X POST "$BASE_URL/v2/conversations/$CID/turns" \
+  -H "$AUTH" -H 'content-type: application/json' \
+  -d '{"speaker":"user","text":"Help debug packet loss","thread_hint":"networking"}'
+TURN_ID="$(printf '%s\n' "$LAST_RESP" | python3 -c 'import sys,json; print(json.load(sys.stdin)["turn_id"])')"
+echo "last TID=$TURN_ID"
 
 run_call "Segment" \
   -X POST "$BASE_URL/v2/conversations/$CID/segment" \
@@ -52,7 +75,15 @@ run_call "Build Working Context" \
 run_call "Telemetry Snapshot" \
   -X POST "$BASE_URL/v2/conversations/$CID/telemetry" \
   -H "$AUTH" -H 'content-type: application/json' \
-  -d "{\"turn_id\":\"$TURN_ID\",\"query\":\"packet loss troubleshooting\",\"mode\":\"minimal\"}"
+  -d "{\"turn_id\":\"$TURN_ID\",\"query\":\"packet loss troubleshooting\",\"mode\":\"verbose\"}"
+
+run_call "Recent Telemetry" \
+  "$BASE_URL/v2/conversations/$CID/telemetry/recent?limit=5" \
+  -H "$AUTH"
+
+run_call "Run Groups" \
+  "$BASE_URL/v2/conversations/$CID/telemetry/run_groups/recent?limit=5" \
+  -H "$AUTH"
 
 run_call "List Spans" \
   "$BASE_URL/v2/conversations/$CID/spans?include_quarantined=true" \

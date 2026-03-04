@@ -1,0 +1,94 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Run Group Detail</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>Telemetry Run Group</h1>
+  <p><a href="/">Back</a></p>
+  <p><strong>Run group:</strong> <code id="group-id">{{ run_group_id }}</code></p>
+
+  <section>
+    <h2>Conversation</h2>
+    <label>Conversation ID <input id="conversation-id" size="40" placeholder="Paste conversation_id" /></label>
+    <button id="load">Load</button>
+    <p>Or open this page with <code>?conversation_id=&lt;CID&gt;</code>.</p>
+  </section>
+
+  <section>
+    <h2>Snapshot Sections</h2>
+    <div id="snapshots"></div>
+  </section>
+
+  <script>
+    const API_KEY = localStorage.getItem('api_key') || 'dev-key';
+    const runGroupId = document.getElementById('group-id').textContent.trim();
+
+    function qp(name) {
+      const u = new URL(window.location.href);
+      return u.searchParams.get(name) || '';
+    }
+
+    async function api(path) {
+      const r = await fetch(path, { headers: { Authorization: `Bearer ${API_KEY}` }});
+      if (!r.ok) throw new Error(await r.text());
+      return await r.json();
+    }
+
+    function methodOrder(method) {
+      if (method === 'grad_proxy') return 0;
+      if (method === 'ablation_kl') return 1;
+      return 2;
+    }
+
+    function weightRows(weights) {
+      return (weights || []).map(w => `<tr>
+        <td>${w.span_id}</td>
+        <td>${w.thread_id || ''}</td>
+        <td>${Number(w.w || 0).toFixed(4)}</td>
+        <td>${Number(w.raw_score || 0).toFixed(4)}</td>
+      </tr>`).join('');
+    }
+
+    async function loadDetail() {
+      const cid = document.getElementById('conversation-id').value.trim();
+      if (!cid) return;
+      const data = await api(`/v2/conversations/${cid}/telemetry/run_groups/${runGroupId}`);
+      const snaps = (data.snapshots || []).slice().sort((a, b) => methodOrder(a.method) - methodOrder(b.method) || String(a.method).localeCompare(String(b.method)));
+      const container = document.getElementById('snapshots');
+      container.innerHTML = '';
+
+      snaps.forEach(s => {
+        const section = document.createElement('section');
+        const label = s.method === 'grad_proxy'
+          ? `Proxy (${s.proxy_kind || 'unknown'})`
+          : (s.method === 'ablation_kl' ? 'Measured (ablation_kl)' : s.method);
+        const alarms = Object.entries((s.metrics || {}).alarms || {}).filter(([_, v]) => !!v).map(([k]) => k).join(', ') || 'none';
+        section.innerHTML = `
+          <h3>${label}</h3>
+          <p>snapshot_id: <code>${s.snapshot_id}</code></p>
+          <p>target_thread: <code>${s.target_thread_id}</code></p>
+          <p>Coff=${Number((s.metrics || {}).off_thread_coupling_Coff || 0).toFixed(4)} H=${Number((s.metrics || {}).influence_entropy_H || 0).toFixed(4)} alarms=${alarms}</p>
+          <p><a href="/v2/conversations/${cid}/telemetry/snapshots/${s.snapshot_id}/explain" target="_blank" rel="noopener">Snapshot explain JSON</a></p>
+          <h4>Selected spans</h4>
+          <pre>${JSON.stringify(s.spans_considered || [], null, 2)}</pre>
+          <h4>Influence weights</h4>
+          <table>
+            <thead><tr><th>Span</th><th>Thread</th><th>w</th><th>raw</th></tr></thead>
+            <tbody>${weightRows((s.influence || {}).weights || [])}</tbody>
+          </table>
+        `;
+        container.appendChild(section);
+      });
+    }
+
+    document.getElementById('load').onclick = () => loadDetail().catch(err => alert(err.message));
+    document.getElementById('conversation-id').value = qp('conversation_id');
+    if (document.getElementById('conversation-id').value) {
+      loadDetail().catch(err => alert(err.message));
+    }
+  </script>
+</body>
+</html>

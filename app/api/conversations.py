@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.db.models import Conversation
 from app.deps import db_session, require_api_key
 from app.schemas import ConversationOut, CreateConversationRequest
+from app.services.export_import import export_conversation_bundle, import_conversation_bundle
 from app.services.serializers import conversation_out
 
 router = APIRouter(prefix="/conversations", tags=["conversations"], dependencies=[Depends(require_api_key)])
@@ -34,6 +35,31 @@ def create_conversation(payload: CreateConversationRequest, db: Session = Depend
 def list_conversations(db: Session = Depends(db_session)) -> list[ConversationOut]:
     rows = list(db.scalars(select(Conversation).order_by(Conversation.updated_at.desc())).all())
     return [conversation_out(c) for c in rows]
+
+
+@router.post("/import", response_model=dict)
+def import_conversation(payload: dict, db: Session = Depends(db_session)) -> dict:
+    try:
+        with db.begin():
+            result = import_conversation_bundle(db, payload)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Import failed: {exc}") from exc
+    return result
+
+
+@router.get("/{conversation_id}/export", response_model=dict)
+def export_conversation(conversation_id: str, db: Session = Depends(db_session)) -> dict:
+    bundle = export_conversation_bundle(db, conversation_id)
+    if bundle is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return bundle
 
 
 @router.get("/{conversation_id}", response_model=ConversationOut)

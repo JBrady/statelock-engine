@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Learn StateLock</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <h1>Learn StateLock</h1>
+  <p><a href="/">Back to dashboard</a></p>
+
+  <section>
+    <h2>WHAT IS STATELOCK</h2>
+    <p>StateLock helps AI systems remember the right things during long conversations and ignore stale or off-topic details.</p>
+  </section>
+
+  <section>
+    <h2>WHAT PROBLEM IT SOLVES</h2>
+    <p>Long chats can drift. Useful facts get buried and topics mix together. StateLock reduces context drift and topic mixing by tracking topic threads and scoring context influence.</p>
+  </section>
+
+  <section>
+    <h2>HOW IT WORKS</h2>
+    <p><code>turn -&gt; span -&gt; thread -&gt; working context -&gt; telemetry</code></p>
+    <ol>
+      <li>A turn is added.</li>
+      <li>Segmentation splits turns into spans.</li>
+      <li>Spans are assigned to threads (topics).</li>
+      <li>A working context is assembled for the next answer.</li>
+      <li>Telemetry measures which spans influenced the model response.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>QUICK START</h2>
+    <ol>
+      <li>Create conversation</li>
+      <li>Add turns</li>
+      <li>Run segmentation</li>
+      <li>Build working context</li>
+      <li>Run telemetry</li>
+    </ol>
+<pre><code>curl -s -X POST http://127.0.0.1:8000/v2/conversations \
+  -H "Authorization: Bearer dev-key" -H "content-type: application/json" \
+  -d '{"title":"demo"}'
+
+curl -s -X POST http://127.0.0.1:8000/v2/conversations/&lt;CID&gt;/turns \
+  -H "Authorization: Bearer dev-key" -H "content-type: application/json" \
+  -d '{"speaker":"user","text":"Help me debug packet loss"}'
+
+curl -s -X POST http://127.0.0.1:8000/v2/conversations/&lt;CID&gt;/segment \
+  -H "Authorization: Bearer dev-key" -H "content-type: application/json" \
+  -d '{"mode":"incremental"}'
+
+curl -s -X POST http://127.0.0.1:8000/v2/conversations/&lt;CID&gt;/working_context \
+  -H "Authorization: Bearer dev-key" -H "content-type: application/json" \
+  -d '{"query":"packet loss troubleshooting"}'
+
+curl -s -X POST http://127.0.0.1:8000/v2/conversations/&lt;CID&gt;/telemetry \
+  -H "Authorization: Bearer dev-key" -H "content-type: application/json" \
+  -d '{"turn_id":"&lt;TID&gt;","query":"packet loss troubleshooting","mode":"verbose"}'</code></pre>
+  </section>
+
+  <section>
+    <h2>KEY CONCEPTS</h2>
+    <ul>
+      <li><strong>turn</strong>: one user/assistant/tool message.</li>
+      <li><strong>span</strong>: a chunk of text derived from turns.</li>
+      <li><strong>thread</strong>: a topical cluster of spans.</li>
+      <li><strong>working context</strong>: selected text sent to the model for the next response.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>TELEMETRY EXPLANATION</h2>
+    <p><strong>Proxy influence</strong> is a fast estimate of how much each span matters. <strong>Ablation</strong> is measured influence: remove one span and measure output KL change.</p>
+  </section>
+
+  <section>
+    <h2>METRICS EXPLANATION</h2>
+    <ul>
+      <li><strong>entropy (H)</strong>: how spread influence is across spans. Higher means more diffuse context use.</li>
+      <li><strong>off-thread coupling (Coff)</strong>: influence mass outside the target thread. Higher means more off-topic coupling.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>ALARM EXPLANATIONS</h2>
+    <ul>
+      <li><strong>anchor rot</strong>: stale or off-thread anchor span dominates influence.</li>
+      <li><strong>smear rot</strong>: influence is overly spread across many spans.</li>
+      <li><strong>off-thread spike</strong>: off-thread coupling jumps compared to previous state.</li>
+    </ul>
+  </section>
+</body>
+</html>

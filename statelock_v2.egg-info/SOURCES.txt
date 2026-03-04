@@ -4,11 +4,13 @@ app/__init__.py
 app/config.py
 app/deps.py
 app/main.py
+app/runtime.py
 app/utils.py
 app/api/__init__.py
 app/api/context.py
 app/api/conversations.py
 app/api/dashboard.py
+app/api/debug.py
 app/api/governance.py
 app/api/memory.py
 app/api/segmentation.py
@@ -26,8 +28,10 @@ app/pipelines/segmentation.py
 app/pipelines/threading.py
 app/schemas/__init__.py
 app/schemas/models.py
+app/services/export_import.py
 app/services/pipeline_log.py
 app/services/serializers.py
+app/services/telemetry_queries.py
 app/services/telemetry_service.py
 app/telemetry/ablation.py
 app/telemetry/influence.py
