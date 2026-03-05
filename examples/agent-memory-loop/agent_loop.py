@@ -340,17 +340,26 @@ def _extract_fact_memories(user_text: str) -> list[dict]:
 
     patterns = [
         (
-            re.compile(r"\bmy name is\s+(.+?)(?=(?:\s+\band\b\s+(?:i|my)\b)|[.!?;\n]|$)", re.IGNORECASE),
+            re.compile(
+                r"\bmy name is\s+(.+?)(?=(?:\s+\band\b\s+(?:i|my)\b)|[.!?;\n]|$)",
+                re.IGNORECASE,
+            ),
             "User name is {value}",
             ["fact", "name"],
         ),
         (
-            re.compile(r"\bcall me\s+(.+?)(?=(?:\s+\band\b\s+(?:i|my)\b)|[.!?;\n]|$)", re.IGNORECASE),
+            re.compile(
+                r"\bcall me\s+(.+?)(?=(?:\s+\band\b\s+(?:i|my)\b)|[.!?;\n]|$)",
+                re.IGNORECASE,
+            ),
             "User name is {value}",
             ["fact", "name"],
         ),
         (
-            re.compile(r"\bi prefer\s+(.+?)(?=(?:\s+\band\b\s+(?:i|my)\b)|[.!?;\n]|$)", re.IGNORECASE),
+            re.compile(
+                r"\bi prefer\s+(.+?)(?=(?:\s+\band\b\s+(?:i|my)\b)|[.!?;\n]|$)",
+                re.IGNORECASE,
+            ),
             "User prefers {value}",
             ["fact", "preference"],
         ),
