@@ -109,7 +109,8 @@ def _http_json(
 def _assert_status(status: int, body: dict, label: str) -> None:
     if 200 <= status < 300:
         return
-    raise RuntimeError(f"{label} failed with HTTP {status}: {_json_preview(json.dumps(body, ensure_ascii=False))}")
+    preview = _json_preview(json.dumps(body, ensure_ascii=False))
+    raise RuntimeError(f"{label} failed with HTTP {status}: {preview}")
 
 
 def _statelock_headers(api_key: str, version_header: str) -> dict[str, str]:
