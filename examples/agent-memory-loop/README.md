@@ -3,11 +3,12 @@
 This example demonstrates a simple interactive agent loop that uses StateLock Core as a memory sidecar:
 
 1. user enters a prompt,
-2. agent retrieves related memories from StateLock,
-3. agent assembles a memory context block,
-4. agent calls an LLM,
-5. agent optionally saves the assistant response,
-6. repeat.
+2. agent extracts fact-shaped memories from the user message (`my name is ...`, `call me ...`, `I prefer ...`) and saves them when enabled,
+3. agent retrieves related memories from StateLock,
+4. agent assembles a memory context block,
+5. agent calls an LLM,
+6. agent optionally saves the assistant response,
+7. repeat.
 
 ## Scope Guardrails
 
@@ -86,12 +87,25 @@ Type `exit` or `quit` to stop the loop.
 | `STATELOCK_TAGS` | `agent-loop,memory` | Base tags for saved memories |
 | `SAVE_MODE` | `always` | `always`, `never`, `keyword` |
 | `SAVE_KEYWORDS` | `decision,preference,todo,policy` | Used when `SAVE_MODE=keyword` |
+| `FACT_SAVE` | `1` | Enables extracted fact saves from user text |
 
 ## Save Policy Modes
 
 1. `always` (default): save every assistant response.
-2. `never`: disable memory writes.
-3. `keyword`: save only if any keyword appears in user/assistant text.
+2. `never`: disable assistant-response memory writes.
+3. `keyword`: save assistant responses only if any keyword appears in user/assistant text.
+
+`SAVE_MODE` applies to assistant-response saves only. Fact extraction saves are controlled by `FACT_SAVE`.
+
+## Fact Extraction Rules
+
+When `FACT_SAVE=1` (default), user text is scanned for:
+
+1. `my name is X` -> memory content `User name is X`
+2. `call me X` -> memory content `User name is X`
+3. `I prefer X` -> memory content `User prefers X`
+
+Extracted memories are written as separate records with additional tags such as `fact`, `name`, and `preference`.
 
 ## Example Interactive Transcript
 
@@ -112,6 +126,13 @@ Assistant> We agreed to stay local-first and escalate for low confidence or corr
 [memory-save] full response:
 { ... }
 [memory-save] identifier=...
+
+You> my name is John and I prefer dark mode
+[fact-save] extracted=2
+[memories] retrieved: 3
+[llm] backend=litellm model=chat_default
+Assistant> Got it, John. I'll keep dark mode as your preference.
+[memory-save] triggered=true reason=always
 
 You> quit
 Exiting agent loop.
