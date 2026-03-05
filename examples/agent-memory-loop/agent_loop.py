@@ -377,7 +377,8 @@ def _should_save_memory(user_text: str, assistant_text: str) -> tuple[bool, str]
     if mode != "keyword":
         raise RuntimeError("SAVE_MODE must be one of: always, never, keyword")
 
-    keywords = [k.strip().lower() for k in _env("SAVE_KEYWORDS", "decision,preference,todo,policy").split(",") if k.strip()]
+    keywords_raw = _env("SAVE_KEYWORDS", "decision,preference,todo,policy")
+    keywords = [k.strip().lower() for k in keywords_raw.split(",") if k.strip()]
     combined = f"{user_text}\n{assistant_text}".lower()
     matched = [k for k in keywords if k in combined]
     if matched:
@@ -387,7 +388,8 @@ def _should_save_memory(user_text: str, assistant_text: str) -> tuple[bool, str]
 
 def _run_loop(base_url: str, api_prefix: str, timeout: int, session_id: str) -> None:
     turn = 1
-    base_tags = [t.strip() for t in _env("STATELOCK_TAGS", "agent-loop,memory").split(",") if t.strip()]
+    tags_raw = _env("STATELOCK_TAGS", "agent-loop,memory")
+    base_tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
 
     print("\nType your message. Type 'exit' or 'quit' to stop.\n")
 
