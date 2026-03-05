@@ -9,6 +9,7 @@ import textwrap
 import traceback
 import urllib.error
 import urllib.request
+from typing import Optional
 
 
 def _env(name: str, default: str = "") -> str:
@@ -72,8 +73,8 @@ def _json_preview(raw: str, limit: int = 500) -> str:
 def _http_json(
     method: str,
     url: str,
-    payload: dict | None = None,
-    headers: dict | None = None,
+    payload: Optional[dict] = None,
+    headers: Optional[dict] = None,
     timeout: int = 60,
 ) -> tuple[int, dict, str]:
     req_headers: dict[str, str] = dict(headers or {})
@@ -305,7 +306,7 @@ def _save_memory(
     name: str,
     tags: list[str],
     session_id: str,
-) -> tuple[dict, str | None]:
+) -> tuple[dict, Optional[str]]:
     url = _join(base_url, f"{api_prefix}/")
     payload = {
         "content": content,
