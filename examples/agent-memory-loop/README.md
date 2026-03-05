@@ -106,6 +106,9 @@ When `FACT_SAVE=1` (default), user text is scanned for:
 3. `I prefer X` -> memory content `User prefers X`
 
 Extracted memories are written as separate records with additional tags such as `fact`, `name`, and `preference`.
+Multi-clause input is split safely. Example input `my name is John, I prefer dark mode` saves:
+- `User name is John`
+- `User prefers dark mode`
 
 ## Example Interactive Transcript
 

@@ -333,6 +333,21 @@ def _normalize_fact_value(raw: str) -> str:
     return re.sub(r"\s+", " ", raw).strip(" \t\"'`.,!?;:")
 
 
+def _normalize_name_fact_value(raw: str) -> str:
+    value = _normalize_fact_value(raw)
+    value = re.split(r"[,;:.!?]", value, maxsplit=1)[0].strip()
+    value = re.split(
+        r"\s+(?:and call me|and|but|i prefer|i like)\b",
+        value,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0].strip()
+    value = _normalize_fact_value(value)
+    if len(value) > 40:
+        return ""
+    return value
+
+
 def _extract_fact_memories(user_text: str) -> list[dict]:
     text = user_text.strip()
     if not text:
@@ -370,6 +385,8 @@ def _extract_fact_memories(user_text: str) -> list[dict]:
     for pattern, template, tags in patterns:
         for match in pattern.finditer(text):
             value = _normalize_fact_value(match.group(1))
+            if "name" in tags:
+                value = _normalize_name_fact_value(value)
             if not value:
                 continue
             content = template.format(value=value)
