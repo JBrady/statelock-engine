@@ -3,6 +3,7 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 import textwrap
@@ -328,6 +329,58 @@ def _save_memory(
     return body, save_identifier
 
 
+def _normalize_fact_value(raw: str) -> str:
+    return re.sub(r"\s+", " ", raw).strip(" \t\"'`.,!?;:")
+
+
+def _extract_fact_memories(user_text: str) -> list[dict]:
+    text = user_text.strip()
+    if not text:
+        return []
+
+    patterns = [
+        (
+            re.compile(
+                r"\bmy name is\s+(.+?)(?=(?:\s+\band\b\s+(?:i|my)\b)|[.!?;\n]|$)",
+                re.IGNORECASE,
+            ),
+            "User name is {value}",
+            ["fact", "name"],
+        ),
+        (
+            re.compile(
+                r"\bcall me\s+(.+?)(?=(?:\s+\band\b\s+(?:i|my)\b)|[.!?;\n]|$)",
+                re.IGNORECASE,
+            ),
+            "User name is {value}",
+            ["fact", "name"],
+        ),
+        (
+            re.compile(
+                r"\bi prefer\s+(.+?)(?=(?:\s+\band\b\s+(?:i|my)\b)|[.!?;\n]|$)",
+                re.IGNORECASE,
+            ),
+            "User prefers {value}",
+            ["fact", "preference"],
+        ),
+    ]
+
+    facts: list[dict] = []
+    seen: set[str] = set()
+    for pattern, template, tags in patterns:
+        for match in pattern.finditer(text):
+            value = _normalize_fact_value(match.group(1))
+            if not value:
+                continue
+            content = template.format(value=value)
+            dedupe_key = content.lower()
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            facts.append({"content": content, "tags": tags})
+    return facts
+
+
 def _assemble_memory_context(query_body: dict) -> str:
     results = query_body.get("results", []) if isinstance(query_body, dict) else []
     contents: list[str] = []
@@ -390,6 +443,7 @@ def _run_loop(base_url: str, api_prefix: str, timeout: int, session_id: str) -> 
     turn = 1
     tags_raw = _env("STATELOCK_TAGS", "agent-loop,memory")
     base_tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+    fact_save_enabled = _parse_bool("FACT_SAVE", True)
 
     print("\nType your message. Type 'exit' or 'quit' to stop.\n")
 
@@ -405,6 +459,27 @@ def _run_loop(base_url: str, api_prefix: str, timeout: int, session_id: str) -> 
         if user_text.lower() in {"exit", "quit"}:
             print("Exiting agent loop.")
             return
+
+        fact_memories = _extract_fact_memories(user_text)
+        if fact_memories and fact_save_enabled:
+            print(f"[fact-save] extracted={len(fact_memories)}")
+            for idx, fact in enumerate(fact_memories, start=1):
+                save_name = f"loop_turn_{turn}_fact_{idx}"
+                save_tags = base_tags + ["agent-loop"] + fact["tags"]
+                save_body, save_id = _save_memory(
+                    base_url=base_url,
+                    api_prefix=api_prefix,
+                    timeout=timeout,
+                    content=fact["content"],
+                    name=save_name,
+                    tags=save_tags,
+                    session_id=session_id,
+                )
+                print("[fact-save] full response:")
+                print(json.dumps(save_body, indent=2, ensure_ascii=False))
+                print(f"[fact-save] identifier={save_id} content={fact['content']}")
+        elif fact_memories:
+            print(f"[fact-save] extracted={len(fact_memories)} but FACT_SAVE is disabled")
 
         query_body = _query_memories(base_url, api_prefix, timeout, user_text)
         results = query_body.get("results", []) if isinstance(query_body, dict) else []
@@ -449,6 +524,7 @@ def main() -> int:
         top_k = _parse_int("TOP_K", 5)
         llm_backend = _env("LLM_BACKEND", "auto").strip() or "auto"
         save_mode = _env("SAVE_MODE", "always").strip() or "always"
+        fact_save = _parse_bool("FACT_SAVE", True)
 
         print("== Python Diagnostics ==")
         print(f"which python: {_run_cmd(['which', 'python'])}")
@@ -462,6 +538,7 @@ def main() -> int:
         print(f"TOP_K: {top_k}")
         print(f"LLM_BACKEND: {llm_backend}")
         print(f"SAVE_MODE: {save_mode}")
+        print(f"FACT_SAVE: {str(fact_save).lower()}")
 
         _preflight_core(base_url, timeout)
         _run_loop(base_url, api_prefix, timeout, session_id)
