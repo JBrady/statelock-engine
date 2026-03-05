@@ -242,8 +242,15 @@ def _preflight_core(base_url: str, timeout: int) -> None:
     health_url = _join(base_url, "/healthz")
     ready_url = _join(base_url, "/readyz")
 
-    health_status, health_body, _ = _http_json("GET", health_url, timeout=timeout)
-    ready_status, ready_body, _ = _http_json("GET", ready_url, timeout=timeout)
+    def probe(url: str) -> tuple[int, dict]:
+        try:
+            status, body, _ = _http_json("GET", url, timeout=timeout)
+            return status, body
+        except Exception as exc:
+            return 0, {"error": str(exc)}
+
+    health_status, health_body = probe(health_url)
+    ready_status, ready_body = probe(ready_url)
 
     print("\n[preflight] /healthz:")
     print(json.dumps({"status": health_status, "body": health_body}, indent=2, ensure_ascii=False))
@@ -254,9 +261,13 @@ def _preflight_core(base_url: str, timeout: int) -> None:
         return
 
     root_url = _join(base_url, "/")
-    root_status, root_body, _ = _http_json("GET", root_url, timeout=timeout)
     print("[preflight] /healthz or /readyz not successful, fallback GET /:")
+    root_status, root_body = probe(root_url)
     print(json.dumps({"status": root_status, "body": root_body}, indent=2, ensure_ascii=False))
+    if not (200 <= root_status < 300):
+        raise RuntimeError(
+            "Core preflight failed: /healthz and /readyz unavailable, fallback GET / also failed"
+        )
 
 
 def _save_memory(base_url: str, api_prefix: str, timeout: int, content: str) -> dict:
