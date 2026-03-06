@@ -6,7 +6,7 @@ Thin Next.js UI for the existing Core and Observability backends.
 
 ```bash
 cd apps/web
-npm install
+npm ci
 PORT=3001 \
 STATELOCK_CORE_BASE_URL=http://127.0.0.1:8000 \
 STATELOCK_CORE_API_KEY= \
