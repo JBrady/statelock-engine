@@ -13,7 +13,7 @@ const navGroups: Array<{ label: string; entries: NavEntry[] }> = [
   {
     label: "Overview",
     entries: [
-      { href: "/", label: "Launchpad", hint: "Tracks, constraints, run hints" },
+      { href: "/operator", label: "Launchpad", hint: "Tracks, constraints, run hints" },
       { href: "/metrics", label: "Metrics", hint: "Current counters and observed keys" },
     ],
   },
@@ -45,7 +45,8 @@ export function Nav() {
         <h1 className="brand-title">Unified operator view</h1>
         <p className="brand-copy">
           Thin Next.js surface for Core memory operations and Observability trace
-          inspection, with no backend coupling.
+          inspection, with no backend coupling. Product-facing pages live in the
+          separate humane shell.
         </p>
       </div>
 
