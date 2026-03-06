@@ -58,7 +58,15 @@ function buildTargetUrl(kind: ProxyKind, request: NextRequest, path: string[]): 
   const baseUrl = new URL(getBaseUrl(kind));
   const safePath = path.map((segment) => encodeURIComponent(segment)).join("/");
   const basePath = baseUrl.pathname.replace(/\/$/, "");
-  baseUrl.pathname = `${basePath}/${safePath}`.replace(/\/+/g, "/");
+  let targetPath = `${basePath}/${safePath}`.replace(/\/+/g, "/");
+
+  // Core exposes the collection list route at /memories/, and dropping the
+  // trailing slash causes an upstream redirect loop through the proxy.
+  if (kind === "core" && safePath === "memories") {
+    targetPath = `${targetPath}/`;
+  }
+
+  baseUrl.pathname = targetPath;
   baseUrl.search = request.nextUrl.search;
   return baseUrl;
 }
