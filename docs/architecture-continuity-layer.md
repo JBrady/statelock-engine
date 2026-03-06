@@ -150,8 +150,8 @@ Practical interpretation:
 That makes the continuity layer:
 
 1. durable memory in Core,
-2. conversation-state and context assembly in Observability,
-3. adapter integration at the edge.
+1. conversation-state and context assembly in Observability,
+1. adapter integration at the edge.
 
 This is already how the repo behaves in practice.
 
@@ -225,11 +225,11 @@ Evidence:
 Import architecture should initially mean:
 
 1. external export file
-2. parser/normalizer
-3. normalized conversation bundle
-4. Observability import
-5. optional distillation into Observability memory
-6. optional later projection into Core memory blocks
+1. parser/normalizer
+1. normalized conversation bundle
+1. Observability import
+1. optional distillation into Observability memory
+1. optional later projection into Core memory blocks
 
 ### Raw archive store classification
 
@@ -295,9 +295,9 @@ Promotion should be **incremental**, preserving subsystem coherence.
 That means:
 
 1. keep conversation-centric capabilities isolated under `experimental/observability/`
-2. stabilize interfaces and schemas first
-3. promote cohesive modules later into a future `app/observability/` namespace
-4. do **not** scatter context/import/distillation concerns across root `app/` prematurely
+1. stabilize interfaces and schemas first
+1. promote cohesive modules later into a future `app/observability/` namespace
+1. do **not** scatter context/import/distillation concerns across root `app/` prematurely
 
 Evidence:
 
@@ -392,7 +392,7 @@ Two follow-on design tracks are consistent with this architecture and should rem
 Observability-led rather than Core-led:
 
 1. **Experience / procedural memory extraction**
-2. **Memory stratification across raw, working, semantic, episodic, and procedural layers**
+1. **Memory stratification across raw, working, semantic, episodic, and procedural layers**
 
 These are documented in:
 

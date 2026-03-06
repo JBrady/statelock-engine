@@ -58,7 +58,7 @@ Without a Promotion Engine, StateLock risks collapsing into one of two bad modes
 
 1. **Everything becomes memory**
    - low-trust or temporary artifacts pollute durable retrieval
-2. **Nothing becomes memory**
+1. **Nothing becomes memory**
    - continuity remains trapped in transient traces and never becomes reusable
 
 The repo already hints at the right balance:
@@ -99,11 +99,11 @@ Less preferred:
 Recommended pipeline:
 
 1. **Artifact normalization**
-2. **Artifact classification**
-3. **Artifact scoring**
-4. **Rule evaluation**
-5. **Promotion decision / state transition**
-6. **Reinforcement / deprecation / retirement over time**
+1. **Artifact classification**
+1. **Artifact scoring**
+1. **Rule evaluation**
+1. **Promotion decision / state transition**
+1. **Reinforcement / deprecation / retirement over time**
 
 ### 1. Artifact normalization
 
@@ -308,13 +308,13 @@ Recommended protections:
 
 1. **Provenance requirement**
    - promoted artifacts must point back to source turns/spans/import records
-2. **Contradiction-aware promotion**
+1. **Contradiction-aware promotion**
    - contradiction with existing durable memory lowers promotion confidence
-3. **Quarantine path**
+1. **Quarantine path**
    - suspicious artifacts should be held or quarantined instead of promoted
-4. **Policy-risk gating**
+1. **Policy-risk gating**
    - policy/constraints-like artifacts should require deterministic rules or confirmation
-5. **No sole LLM authority**
+1. **No sole LLM authority**
    - the active conversation model can propose candidates, but not unilaterally promote them
 
 Repo grounding:
@@ -410,15 +410,15 @@ Possible routing path:
 
 1. **Raw archive**
    - captured as conversation turns/imported discussion artifacts in Observability
-2. **Working memory**
+1. **Working memory**
    - appears in the current working context while architectural discussion is active
-3. **Episodic memory**
+1. **Episodic memory**
    - stored as a notable architecture decision episode tied to a specific discussion/run
-4. **Durable semantic memory**
+1. **Durable semantic memory**
    - promoted only if repeated and stable enough to become a durable repo fact or project principle
-5. **Policy / constraints**
+1. **Policy / constraints**
    - if it becomes a project-wide architectural constraint, it may be elevated into policy/constraints documentation rather than ordinary memory
-6. **Procedural / experience lesson**
+1. **Procedural / experience lesson**
    - if repeated work shows that keeping Core stable and putting conversation features in Observability consistently reduces churn, that becomes an experience/procedural lesson
 
 Why this example matters:
@@ -457,15 +457,15 @@ Why this example matters:
 
 1. **Document the Promotion Engine**
    - terminology, states, scoring, ownership boundaries
-2. **Define normalized artifact and provenance interfaces**
+1. **Define normalized artifact and provenance interfaces**
    - stay in Observability
-3. **Add candidate/promotion metadata to Observability models**
+1. **Add candidate/promotion metadata to Observability models**
    - only after the design stabilizes
-4. **Wire reinforcement/deprecation signals**
+1. **Wire reinforcement/deprecation signals**
    - use existing telemetry/governance/eval counters
-5. **Introduce explicit projection rules into Core**
+1. **Introduce explicit projection rules into Core**
    - only for durable semantic memory
-6. **Add human-gated paths for policy/high-risk promotion**
+1. **Add human-gated paths for policy/high-risk promotion**
    - later phase
 
 This sequence keeps changes incremental and preserves the current Core vs Observability split.

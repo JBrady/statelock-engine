@@ -386,7 +386,7 @@ It should not be raw trace records.
 It should be:
 
 1. a **Core-compatible semantic projection payload**, plus
-2. an **Observability-side trace record** proving where it came from and why it was promoted.
+1. an **Observability-side trace record** proving where it came from and why it was promoted.
 
 That is exactly what `ProjectionRecord` captures.
 
@@ -566,9 +566,9 @@ That keeps the first schema implementation-friendly.
 Recommended minimum schema set for the first implementation phase:
 
 1. `PromotionArtifact`
-2. `PromotionEvidence`
-3. `PromotionDecision`
-4. `ProjectionRecord`
+1. `PromotionEvidence`
+1. `PromotionDecision`
+1. `ProjectionRecord`
 
 `PromotionStatus` can be implemented either:
 
@@ -588,25 +588,25 @@ That is the minimum needed for auditable promotion.
 
 1. **Document the schema boundary first**
    - this document
-2. **Add Observability-side conceptual models**
+1. **Add Observability-side conceptual models**
    - artifact, evidence, decision, projection
-3. **Keep Core unchanged initially**
+1. **Keep Core unchanged initially**
    - reuse `MemoryUpsert` payload shape
-4. **Add projection write path**
+1. **Add projection write path**
    - Observability emits reduced semantic block into Core
-5. **Add reinforcement/deprecation hooks**
+1. **Add reinforcement/deprecation hooks**
    - driven by telemetry/governance outcomes
-6. **Only then consider richer review/supersession UI**
+1. **Only then consider richer review/supersession UI**
 
 This sequence keeps Core stable and pushes experimentation where the repo already expects it: Observability.
 
 ## 15. Open Questions
 
 1. Should `PromotionArtifact` be a durable DB model or a normalized transient pipeline object first?
-2. Should `PromotionEvidence` be one record per source signal, or a compact aggregate per decision?
-3. What deterministic `external_id` strategy should be used for projected Core blocks?
-4. When an existing Core block is superseded, should Core memory content be updated in place or appended as a new block with lineage kept only in Observability?
-5. Should some high-confidence explicit user constraints bypass the normal semantic projection path and land in a separate policy registry instead of Core memory?
+1. Should `PromotionEvidence` be one record per source signal, or a compact aggregate per decision?
+1. What deterministic `external_id` strategy should be used for projected Core blocks?
+1. When an existing Core block is superseded, should Core memory content be updated in place or appended as a new block with lineage kept only in Observability?
+1. Should some high-confidence explicit user constraints bypass the normal semantic projection path and land in a separate policy registry instead of Core memory?
 
 ## Cross-Reference
 
