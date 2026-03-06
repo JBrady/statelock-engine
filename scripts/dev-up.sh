@@ -7,38 +7,53 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/dev-common.sh"
 
 rollback() {
-  printf "\nStartup failed. Stopping any services started in this attempt...\n" >&2
-  stop_service web >/dev/null 2>&1 || true
-  stop_service obs >/dev/null 2>&1 || true
-  stop_service core >/dev/null 2>&1 || true
+  local service
+  if [[ "${#STARTED_SERVICES[@]}" -eq 0 ]]; then
+    printf "\nStartup failed. No newly started services to roll back.\n" >&2
+    return
+  fi
+
+  printf "\nStartup failed. Stopping services started in this attempt...\n" >&2
+  for (( idx=${#STARTED_SERVICES[@]}-1 ; idx>=0 ; idx-- )); do
+    service="${STARTED_SERVICES[idx]}"
+    stop_service "$service" >/dev/null 2>&1 || true
+  done
 }
+
+STARTED_SERVICES=()
 
 trap rollback ERR
 
 check_prereqs
-check_port_available core
-check_port_available obs
-check_port_available web
 
-printf "Starting Core on %s...\n" "$CORE_URL"
-start_service core
-wait_for_http core "$CORE_URL/healthz" 30
-wait_for_http core "$CORE_URL/readyz" 30
+ensure_service_running core "Core"
+if [[ "$ENSURE_SERVICE_ACTION" == "started" ]]; then
+  STARTED_SERVICES+=(core)
+fi
 
-printf "Starting Observability on %s...\n" "$OBS_URL"
-start_service obs
-wait_for_http obs "$OBS_URL/health" 30
+ensure_service_running obs "Observability"
+if [[ "$ENSURE_SERVICE_ACTION" == "started" ]]; then
+  STARTED_SERVICES+=(obs)
+fi
 
-printf "Starting UI on %s...\n" "$WEB_URL"
-start_service web
-wait_for_http web "$WEB_URL/api/core/healthz" 45
+ensure_service_running web "UI"
+if [[ "$ENSURE_SERVICE_ACTION" == "started" ]]; then
+  STARTED_SERVICES+=(web)
+fi
 
 trap - ERR
 
 printf "\nStateLock local stack is up.\n"
+printf "Overall       %s\n" "$(stack_overall_status)"
 printf "Core          %s\n" "$CORE_URL"
 printf "Observability %s\n" "$OBS_URL"
 printf "UI            %s\n" "$WEB_URL"
+printf "\nStatus:\n"
+print_status_block core
+printf "\n"
+print_status_block obs
+printf "\n"
+print_status_block web
 printf "\nLogs:\n"
 printf "  core: %s\n" "$CORE_LOG_FILE"
 printf "  obs:  %s\n" "$OBS_LOG_FILE"

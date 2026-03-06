@@ -57,6 +57,11 @@ from repo root with one command:
 make dev-up
 ```
 
+`make dev-up` is idempotent: it ensures Core, Observability, and the UI are
+running, reuses healthy services that are already up, repairs stale PID files,
+and reports clear port conflicts instead of treating "already running" as a hard
+failure.
+
 Launcher prerequisites:
 
 - Core virtualenv: `python3 -m venv .venv && source .venv/bin/activate && make setup-dev`
@@ -83,6 +88,8 @@ macOS-only helper:
 ```bash
 make dev-open
 ```
+
+`make dev-open` first ensures the local stack is up, then opens the product UI.
 
 Runtime artifacts are stored locally in `.run/`:
 
