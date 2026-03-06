@@ -16,6 +16,13 @@ StateLock handles memory persistence/retrieval. It does **not** route model call
 - Agent runtime: OpenClaw
 - Durable memory: StateLock
 
+The repo currently uses a two-track architecture:
+
+- Core Track: stable Chroma-backed memory sidecar runtime
+- Observability Track: isolated conversation/telemetry/governance subsystem under `experimental/observability/`
+
+See `docs/architecture-tracks.md` for the current boundary.
+
 ## Features
 
 - Session-scoped memory blocks (`session_id`)
@@ -31,7 +38,7 @@ StateLock handles memory persistence/retrieval. It does **not** route model call
 - Optional API auth (`X-Statelock-Api-Key`) controlled by env
 - Health endpoints (`/healthz`, `/readyz`)
 
-## Quickstart (Local)
+## Quickstart (Core Only)
 
 ```bash
 python3 -m venv .venv
@@ -41,7 +48,7 @@ cp .env.example .env
 make run
 ```
 
-## Local Launcher (Recommended)
+## Local Launcher (Recommended Full Stack)
 
 Once the existing local environments are set up, you can run the full local stack
 from repo root with one command:
@@ -82,7 +89,7 @@ Runtime artifacts are stored locally in `.run/`:
 - PID files: `.run/*.pid`
 - logs: `.run/logs/*.log`
 
-The launcher keeps the existing manual startup flow intact and only adds a simpler
+The launcher keeps the existing manual startup flow intact and adds a simpler
 repo-root path for local developer/operator use.
 
 API docs:
@@ -129,6 +136,8 @@ Example:
 See:
 
 - `docs/run-with-local-first-stack.md`
+- `docs/local-stack.md`
+- `docs/local-stack-minimal.md`
 - `examples/openclaw-tooling/`
 - `examples/openclaw-tooling/openclaw-runtime/`
 - `examples/openclaw-tooling/AUTOMATION_CONTRACT.md`
@@ -163,7 +172,13 @@ Cloudflare domain strategy, redirect policy, and DNS/email templates:
 
 ## Website (Static v1)
 
-The public website lives in:
+Website ops docs in this repo live under:
+
+- `docs/domain-operations.md`
+- `docs/website-routing.md`
+- `infra/cloudflare/`
+
+A local-only static website worktree may also exist at:
 
 - `site/`
 
@@ -185,9 +200,14 @@ Cloudflare Pages deployment defaults:
 ```bash
 make lint
 make test
+make web-check
 ```
 
-CI runs both lint and tests.
+CI runs:
+
+- core lint + tests
+- web lint + typecheck + build when `apps/web` is present
+- observability tests in a separate workflow when `experimental/observability/**` changes
 
 ## Operations
 

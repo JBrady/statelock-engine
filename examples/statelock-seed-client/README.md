@@ -1,8 +1,12 @@
 # statelock-seed Client Example
 
-This directory is the canonical home for the seed TypeScript client used to test local-first model routing patterns.
+This directory contains the legacy `statelock-seed` TypeScript client example used
+to test local-first model routing patterns.
 
 It is a consumer example, not runtime server code.
+
+The `statelock-seed` name is retained for provenance and continuity with the
+earlier seed repo.
 
 ## Scope
 

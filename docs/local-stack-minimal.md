@@ -1,59 +1,70 @@
-LOCAL STACK MINIMAL CHEAT SHEET
-Only the commands you actually need
+# Local Stack Minimal Cheat Sheet
 
-⸻
+Only the commands you actually need.
 
-START WORK SESSION
-	1.	Make sure Ollama is running
+## Start Work Session
 
-Check:
+1. Make sure Ollama is running:
+
+```bash
 lsof -i :11434
+```
 
-If nothing shows:
+If nothing is listening:
+
+```bash
 ollama serve
-	2.	Start LiteLLM (only if building StateLock or agents)
+```
 
-~/venvs/litellm/bin/litellm –config ~/litellm.yaml –port 4000
+2. Start LiteLLM only when you need routed model calls:
 
-If you want it in background:
-nohup ~/venvs/litellm/bin/litellm –config ~/litellm.yaml –port 4000 > ~/litellm.log 2>&1 &
+```bash
+~/venvs/litellm/bin/litellm --config ~/litellm.yaml --port 4000
+```
 
-⸻
+Background mode:
 
-STOP LITELLM
+```bash
+nohup ~/venvs/litellm/bin/litellm --config ~/litellm.yaml --port 4000 > ~/litellm.log 2>&1 &
+```
 
-Kill all instances:
+3. Start the repo-local StateLock stack when needed:
+
+```bash
+make dev-up
+```
+
+## Stop LiteLLM
+
+```bash
 pkill -f litellm
-
-Confirm:
 lsof -i :4000
+```
 
-⸻
+## Verify LiteLLM
 
-VERIFY LITELLM IS WORKING
+```bash
+curl -s http://localhost:4000/v1/models | python3 -c 'import sys, json; data = json.load(sys.stdin); print([m["id"] for m in data["data"]])'
+```
 
-Check models:
-curl -s http://localhost:4000/v1/models | python3 -c ‘import sys,json; d=json.load(sys.stdin); print([m[“id”] for m in d[“data”]])’
+## Test a Local Model Through LiteLLM
 
-⸻
+```bash
+curl -s http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"chat_default","messages":[{"role":"user","content":"Say: ok"}],"max_tokens":10}'
+```
 
-TEST LOCAL MODEL THROUGH LITELLM
+## Chat Interface
 
-curl -s http://localhost:4000/v1/chat/completions -H “Content-Type: application/json” -d ‘{“model”:“chat_default”,“messages”:[{“role”:“user”,“content”:“Say: ok”}],“max_tokens”:10}’
+Local-only chat UI:
 
-⸻
+- `http://localhost:3000`
 
-CHAT INTERFACE
+## Remember
 
-Local-only chat:
-http://localhost:3000
+- Ollama = local engine
+- LiteLLM = router
+- StateLock = separate memory/continuity sidecar
 
-⸻
-
-REMEMBER
-
-Ollama = local engine
-LiteLLM = router
-StateLock = always talks to LiteLLM
-
-If you are just chatting, you do NOT need LiteLLM running.
+If you are just chatting in Ollama UI, you do not need LiteLLM running.

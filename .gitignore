@@ -25,6 +25,7 @@ test_chroma_db/
 site/
 docs/domain-operations.md
 docs/website-routing.md
+docs/codex-rehydration-prompt.md
 
 # Runtime env
 .env

@@ -33,6 +33,11 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+Repo-root launcher note:
+
+- standalone Observability defaults to `127.0.0.1:8000`
+- the repo-root `make dev-up` launcher runs Observability on `127.0.0.1:8001` to avoid conflicting with Core on `127.0.0.1:8000`
+
 ## DB Location
 Default database path is `./data/statelock_v2.db`.
 

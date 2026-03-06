@@ -4,9 +4,10 @@
 
 1. Ensure branch is up to date with `main`.
 2. Run `make lint` and `make test`.
-3. Verify `.env.example` matches current required env vars.
-4. Confirm docs updates for any public interface changes.
-5. Update `CHANGELOG.md` under `[Unreleased]`.
+3. Run `make web-check` when `apps/web` is present.
+4. Verify `.env.example` matches current required env vars.
+5. Confirm docs updates for any public interface changes.
+6. Update `CHANGELOG.md` under `[Unreleased]`.
 
 ## Version cut
 
@@ -23,4 +24,5 @@
    - `GET /healthz`
    - `GET /readyz`
    - one `memory.query` + one `memory.save` flow
-3. Archive exported snapshot fixture for rollback testing.
+3. Smoke test the unified web UI when `apps/web` ships in the release.
+4. Archive exported snapshot fixture for rollback testing.
