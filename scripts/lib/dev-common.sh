@@ -110,7 +110,7 @@ ensure_command() {
   local cmd="$1"
   local help="$2"
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    printf "Missing required command: %s\n%s\n" "$cmd" "$help" >&2
+    printf "Missing required command: %s\nNext step: %s\n" "$cmd" "$help" >&2
     exit 1
   fi
 }
@@ -119,22 +119,22 @@ ensure_file() {
   local path="$1"
   local help="$2"
   if [[ ! -f "$path" ]]; then
-    printf "Missing required file: %s\n%s\n" "$path" "$help" >&2
+    printf "Missing required file: %s\nNext step: %s\n" "$path" "$help" >&2
     exit 1
   fi
 }
 
 check_prereqs() {
-  ensure_command python3 "Install python3 so the launcher can spawn detached local services."
-  ensure_command curl "Install curl so the launcher can perform health checks."
-  ensure_command lsof "Install lsof so the launcher can validate ports before startup."
-  ensure_command node "Install Node.js so apps/web can run."
-  ensure_command npm "Install npm so apps/web can run."
+  ensure_command python3 "install python3 so the launcher can spawn detached local services"
+  ensure_command curl "install curl so the launcher can perform health checks"
+  ensure_command lsof "install lsof so the launcher can validate ports before startup"
+  ensure_command node "install Node.js so apps/web can run"
+  ensure_command npm "install npm so apps/web can run"
 
-  ensure_file "$REPO_ROOT/.venv/bin/python" "Create the root Core virtualenv first: python3 -m venv .venv && make setup-dev"
-  ensure_file "$REPO_ROOT/experimental/observability/.venv/bin/python" "Create the Observability virtualenv first: cd experimental/observability && python3.11 -m venv .venv && ./.venv/bin/python -m pip install -e '.[dev]'"
-  ensure_file "$REPO_ROOT/apps/web/package-lock.json" "apps/web is missing package-lock.json."
-  ensure_file "$REPO_ROOT/apps/web/node_modules/next/package.json" "Install UI dependencies first: cd apps/web && npm ci"
+  ensure_file "$REPO_ROOT/.venv/bin/python" "from repo root run: python3 -m venv .venv && source .venv/bin/activate && make setup-dev"
+  ensure_file "$REPO_ROOT/experimental/observability/.venv/bin/python" "from repo root run: cd experimental/observability && python3.11 -m venv .venv && ./.venv/bin/python -m pip install -e '.[dev]'"
+  ensure_file "$REPO_ROOT/apps/web/package-lock.json" "restore or create apps/web/package-lock.json before using the launcher"
+  ensure_file "$REPO_ROOT/apps/web/node_modules/next/package.json" "from repo root run: cd apps/web && npm ci"
 }
 
 check_port_available() {

@@ -50,6 +50,12 @@ from repo root with one command:
 make dev-up
 ```
 
+Launcher prerequisites:
+
+- Core virtualenv: `python3 -m venv .venv && source .venv/bin/activate && make setup-dev`
+- Observability virtualenv: `cd experimental/observability && python3.11 -m venv .venv && ./.venv/bin/python -m pip install -e '.[dev]'`
+- Web dependencies: `cd apps/web && npm ci`
+
 This starts:
 
 - Core on `http://127.0.0.1:8000`
@@ -60,7 +66,15 @@ Useful companion commands:
 
 ```bash
 make dev-status
+make dev-logs
+make dev-restart
 make dev-down
+```
+
+macOS-only helper:
+
+```bash
+make dev-open
 ```
 
 Runtime artifacts are stored locally in `.run/`:

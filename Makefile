@@ -1,7 +1,7 @@
 PYTHON ?= python3
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: setup setup-dev run test lint web-check dev-up dev-down dev-status up down logs up-prod down-prod
+.PHONY: setup setup-dev run test lint web-check dev-up dev-down dev-status dev-restart dev-logs dev-open up down logs up-prod down-prod
 
 setup:
 	$(PIP) install --upgrade pip
@@ -35,6 +35,21 @@ dev-down:
 
 dev-status:
 	bash scripts/dev-status.sh
+
+dev-restart:
+	$(MAKE) dev-down
+	$(MAKE) dev-up
+
+dev-logs:
+	bash scripts/dev-logs.sh
+
+dev-open:
+	@if command -v open >/dev/null 2>&1; then \
+		open http://127.0.0.1:3001; \
+	else \
+		echo "macOS 'open' command not available; open http://127.0.0.1:3001 manually."; \
+		exit 1; \
+	fi
 
 up:
 	cp -n .env.example .env || true
