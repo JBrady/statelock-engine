@@ -30,6 +30,7 @@ export default function CoreSessionsPage() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -77,10 +78,12 @@ export default function CoreSessionsPage() {
     async function loadSessionMemories() {
       if (!selectedSession) {
         setMemories([]);
+        setDetailError(null);
         return;
       }
 
       setDetailLoading(true);
+      setDetailError(null);
       try {
         const params = new URLSearchParams({
           session_id: selectedSession,
@@ -95,7 +98,7 @@ export default function CoreSessionsPage() {
         }
       } catch (loadError) {
         if (mounted) {
-          setError(
+          setDetailError(
             loadError instanceof Error
               ? loadError.message
               : "Failed to load session memories.",
@@ -164,6 +167,8 @@ export default function CoreSessionsPage() {
             <p className="muted">{selectedSession || "No session selected."}</p>
             {detailLoading ? (
               <div className="note">Loading session memories…</div>
+            ) : detailError ? (
+              <div className="error">{detailError}</div>
             ) : !memories.length ? (
               <div className="empty">No memories found for the selected session.</div>
             ) : (
