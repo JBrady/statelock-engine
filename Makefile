@@ -37,19 +37,13 @@ dev-status:
 	bash scripts/dev-status.sh
 
 dev-restart:
-	$(MAKE) dev-down
-	$(MAKE) dev-up
+	bash scripts/dev-restart.sh
 
 dev-logs:
 	bash scripts/dev-logs.sh
 
 dev-open:
-	@if command -v open >/dev/null 2>&1; then \
-		open http://127.0.0.1:3001; \
-	else \
-		echo "macOS 'open' command not available; open http://127.0.0.1:3001 manually."; \
-		exit 1; \
-	fi
+	bash scripts/dev-open.sh
 
 up:
 	cp -n .env.example .env || true
