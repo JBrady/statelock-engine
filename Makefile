@@ -1,7 +1,7 @@
 PYTHON ?= python3
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: setup setup-dev run test lint web-check up down logs up-prod down-prod
+.PHONY: setup setup-dev run test lint web-check dev-up dev-down dev-status dev-restart dev-logs dev-open up down logs up-prod down-prod
 
 setup:
 	$(PIP) install --upgrade pip
@@ -25,6 +25,30 @@ web-check:
 		echo "apps/web not present; skipping web-check"; \
 	else \
 		cd apps/web && npm ci && npm run lint && npm run typecheck && npm run build; \
+	fi
+
+dev-up:
+	bash scripts/dev-up.sh
+
+dev-down:
+	bash scripts/dev-down.sh
+
+dev-status:
+	bash scripts/dev-status.sh
+
+dev-restart:
+	$(MAKE) dev-down
+	$(MAKE) dev-up
+
+dev-logs:
+	bash scripts/dev-logs.sh
+
+dev-open:
+	@if command -v open >/dev/null 2>&1; then \
+		open http://127.0.0.1:3001; \
+	else \
+		echo "macOS 'open' command not available; open http://127.0.0.1:3001 manually."; \
+		exit 1; \
 	fi
 
 up:
