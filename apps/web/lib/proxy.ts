@@ -63,6 +63,34 @@ function buildTargetUrl(kind: ProxyKind, request: NextRequest, path: string[]): 
   return baseUrl;
 }
 
+function getProxyPrefix(kind: ProxyKind): string {
+  return kind === "core" ? "/api/core" : "/api/obs";
+}
+
+function getSafeRedirectLocation(
+  kind: ProxyKind,
+  response: Response,
+  targetUrl: URL,
+): string | null {
+  const location = response.headers.get("location");
+  if (!location) {
+    return null;
+  }
+
+  const resolvedLocation = new URL(location, targetUrl);
+  if (resolvedLocation.origin !== targetUrl.origin) {
+    return null;
+  }
+
+  const upstreamBasePath = new URL(getBaseUrl(kind)).pathname.replace(/\/$/, "");
+  let proxiedPath = resolvedLocation.pathname;
+  if (upstreamBasePath && proxiedPath.startsWith(upstreamBasePath)) {
+    proxiedPath = proxiedPath.slice(upstreamBasePath.length) || "/";
+  }
+
+  return `${getProxyPrefix(kind)}${proxiedPath}${resolvedLocation.search}${resolvedLocation.hash}`;
+}
+
 function buildRequestHeaders(kind: ProxyKind, request: NextRequest): Headers {
   const headers = new Headers();
   const allowed = requestHeaderAllowlist[kind];
@@ -92,7 +120,7 @@ function buildRequestHeaders(kind: ProxyKind, request: NextRequest): Headers {
   return headers;
 }
 
-function buildResponseHeaders(kind: ProxyKind, response: Response): Headers {
+function buildResponseHeaders(kind: ProxyKind, response: Response, targetUrl: URL): Headers {
   const headers = new Headers();
   const allowed = responseHeaderAllowlist[kind];
 
@@ -104,6 +132,11 @@ function buildResponseHeaders(kind: ProxyKind, response: Response): Headers {
     if (allowed.has(lowerKey)) {
       headers.set(key, value);
     }
+  }
+
+  const safeLocation = getSafeRedirectLocation(kind, response, targetUrl);
+  if (safeLocation) {
+    headers.set("location", safeLocation);
   }
 
   return headers;
@@ -138,13 +171,13 @@ export async function proxyToUpstream(
       method: request.method,
       headers: buildRequestHeaders(kind, request),
       body: await buildBody(request),
-      redirect: "follow",
+      redirect: "manual",
     });
 
     return new Response(upstreamResponse.body, {
       status: upstreamResponse.status,
       statusText: upstreamResponse.statusText,
-      headers: buildResponseHeaders(kind, upstreamResponse),
+      headers: buildResponseHeaders(kind, upstreamResponse, targetUrl),
     });
   } catch (error) {
     const message =
