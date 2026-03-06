@@ -31,3 +31,8 @@ docs/website-routing.md
 .env.*
 !.env.example
 .envrc
+
+# Node / Next.js
+node_modules/
+.next/
+out/
