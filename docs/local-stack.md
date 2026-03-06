@@ -1,158 +1,201 @@
-LOCAL LLM STACK DOCUMENTATION
-Mac Mini M4 · Ollama · LiteLLM · StateLock
+# Local LLM Stack
 
-⸻
+This document explains the surrounding local-first stack that StateLock commonly
+runs alongside.
 
-	1.	SYSTEM ARCHITECTURE
+## System Architecture
 
-Components
+Components:
 
-Ollama
-	•	Runs local models
-	•	Port: 11434
-	•	Used by Ollama UI and LiteLLM
+- Ollama
+  - runs local models
+  - default port: `11434`
+  - used by Ollama UI and LiteLLM
+- LiteLLM
+  - proxy router
+  - default port: `4000`
+  - exposes an OpenAI-style API
+  - routes to local Ollama models or configured cloud models
+- StateLock
+  - memory and continuity system
+  - does not route model calls
+  - can be used alongside LiteLLM-based agents and clients
 
-LiteLLM
-	•	Proxy router
-	•	Port: 4000
-	•	Provides OpenAI-style API
-	•	Routes to local (Ollama) or cloud (OpenAI)
+StateLock sits beside LiteLLM in this stack:
 
-StateLock
-	•	Will talk only to LiteLLM
-	•	Never directly to Ollama or OpenAI
+- model calls go to LiteLLM
+- memory/continuity calls go to StateLock
 
-⸻
+## Port Overview
 
-	2.	PORT OVERVIEW
+- `11434` = Ollama local model runtime
+- `3000` = Ollama Web UI
+- `4000` = LiteLLM proxy
+- `8000` = StateLock Core
+- `8001` = StateLock Observability when launched from repo root
+- `3001` = StateLock unified web UI when launched from repo root
 
-11434 = Ollama (local models)
-3000  = Ollama Web UI
-4000  = LiteLLM proxy
+## Normal Usage
 
-⸻
+Casual local chat:
 
-	3.	NORMAL USAGE
+- open `http://localhost:3000`
+- this talks directly to Ollama
+- LiteLLM is not required
 
-Casual Chat
-Open browser: http://localhost:3000
-This is 100 percent local. No LiteLLM involved.
+Programmatic agent/model calls:
 
-Programmatic / Agents
-Call: http://localhost:4000/v1/chat/completions
-This goes through LiteLLM and can route local first, cloud fallback.
+- call `http://localhost:4000/v1/chat/completions`
+- this goes through LiteLLM and can route local-first with optional cloud fallback
 
-⸻
+StateLock usage:
 
-	4.	STARTING SERVICES
+- call StateLock Core for memory APIs such as `/memories/*`
+- optionally call StateLock Observability for `/v2/*` continuity and telemetry APIs
+- StateLock itself remains separate from model routing
 
-Check if Ollama is running
+## Starting Services
+
+Check whether Ollama is running:
+
+```bash
 lsof -i :11434
+```
 
-If not running
+If it is not running:
+
+```bash
 ollama serve
+```
 
-Start LiteLLM (foreground)
-~/venvs/litellm/bin/litellm –config ~/litellm.yaml –port 4000
+Start LiteLLM in the foreground:
 
-Start LiteLLM (background)
-nohup ~/venvs/litellm/bin/litellm –config ~/litellm.yaml –port 4000 > ~/litellm.log 2>&1 &
+```bash
+~/venvs/litellm/bin/litellm --config ~/litellm.yaml --port 4000
+```
 
-⸻
+Start LiteLLM in the background:
 
-	5.	STOP LITELLM
+```bash
+nohup ~/venvs/litellm/bin/litellm --config ~/litellm.yaml --port 4000 > ~/litellm.log 2>&1 &
+```
 
-Check
+Start the StateLock repo-local stack after the repo environments are set up:
+
+```bash
+make dev-up
+```
+
+Useful repo-root companion commands:
+
+```bash
+make dev-status
+make dev-logs
+make dev-down
+```
+
+## Stop LiteLLM
+
+Check which process owns port `4000`:
+
+```bash
 lsof -i :4000
+```
 
-Kill specific process
+Kill a specific process:
+
+```bash
 kill PID_NUMBER
+```
 
-Kill all LiteLLM instances
+Kill all LiteLLM instances:
+
+```bash
 pkill -f litellm
+```
 
-⸻
+## Verify LiteLLM Is Running
 
-	6.	VERIFY LITELLM IS RUNNING
+Check available models:
 
-Check models
-curl -s http://localhost:4000/v1/models | python3 -c ‘import sys,json; d=json.load(sys.stdin); print([m[“id”] for m in d[“data”]])’
+```bash
+curl -s http://localhost:4000/v1/models | python3 -c 'import sys, json; data = json.load(sys.stdin); print([m["id"] for m in data["data"]])'
+```
 
-Expected output
-[‘chat_default’, ‘deep_default’, ‘code_default’, ‘cloud_code’, ‘cloud_reason’]
+Typical output:
 
-⸻
+```text
+['chat_default', 'deep_default', 'code_default', 'cloud_code', 'cloud_reason']
+```
 
-	7.	TEST CHAT THROUGH LITELLM
+## Test Chat Through LiteLLM
 
-curl -s http://localhost:4000/v1/chat/completions -H “Content-Type: application/json” -d ‘{“model”:“chat_default”,“messages”:[{“role”:“user”,“content”:“Say: banana”}],“max_tokens”:20}’
+```bash
+curl -s http://localhost:4000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"chat_default","messages":[{"role":"user","content":"Say: banana"}],"max_tokens":20}'
+```
 
-⸻
+## Model Config File
 
-	8.	MODEL CONFIG FILE
+Typical location:
 
-Location
-~/litellm.yaml
+- `~/litellm.yaml`
 
-Local models
-chat_default → qwen2.5 7B
-deep_default → qwen2.5 14B
-code_default → qwen2.5-coder 7B
+Example aliases:
 
-Cloud models
-cloud_code → gpt-5.2-codex
-cloud_reason → gpt-5.2-chat-latest
+- local
+  - `chat_default`
+  - `deep_default`
+  - `code_default`
+- cloud
+  - `cloud_code`
+  - `cloud_reason`
 
-Guardrails disabled.
+Exact model mappings depend on your local `litellm.yaml`.
 
-⸻
+## Mental Model
 
-	9.	MENTAL MODEL
-
-Ollama = engine
-LiteLLM = switchboard
-StateLock = system using switchboard
+- Ollama = model engine
+- LiteLLM = model switchboard/router
+- StateLock = memory/continuity sidecar
 
 Ollama UI bypasses LiteLLM completely.
 
-StateLock must always use LiteLLM.
+## When To Run LiteLLM
 
-⸻
+Run it when:
 
-	10.	WHEN TO RUN LITELLM
+- developing or testing LiteLLM-routed model flows
+- building agents or client apps that call `/v1/chat/completions`
+- using fallback logic across local and cloud models
 
-Run it when
-	•	Developing StateLock
-	•	Testing routing
-	•	Using fallback logic
-	•	Building agents
+Do not run it when:
 
-Do not run it when
-	•	Just chatting locally
-	•	Not building
+- you are just chatting in Ollama UI
+- you are only working on StateLock memory APIs without any model-calling client flow
 
-⸻
+## OpenAI Key Setup
 
-	11.	OPENAI KEY SETUP
+Only required when LiteLLM is configured to call cloud models:
 
-Add to shell
-echo ‘export OPENAI_API_KEY=“YOUR_KEY”’ >> ~/.zshrc
+```bash
+echo 'export OPENAI_API_KEY="YOUR_KEY"' >> ~/.zshrc
 source ~/.zshrc
+```
 
-Only used when cloud models are called.
+## Clean Restart
 
-⸻
+```bash
+pkill -f litellm && ~/venvs/litellm/bin/litellm --config ~/litellm.yaml --port 4000
+```
 
-	12.	CLEAN RESTART
+## Canonical Repo Location
 
-pkill -f litellm && ~/venvs/litellm/bin/litellm –config ~/litellm.yaml –port 4000
+The canonical repo path used throughout the current docs is:
 
-⸻
+- `~/projects/statelock-engine`
 
-	13.	STATELOCK PROJECT LOCATION
+Legacy client example:
 
-~/projects/statelock-seed
-
-Run client
-npx tsx src/client.ts “Your prompt”
-
+- `examples/statelock-seed-client/`

@@ -1,6 +1,6 @@
 # Operator Runbook
 
-## Local dev run
+## Local dev run (Core only)
 
 ```bash
 python3 -m venv .venv
@@ -8,6 +8,22 @@ source .venv/bin/activate
 make setup-dev
 cp .env.example .env
 make run
+```
+
+## Local full-stack run (recommended for repo work)
+
+After the Core, Observability, and web environments are prepared:
+
+```bash
+make dev-up
+make dev-status
+make dev-logs
+```
+
+Stop the full stack:
+
+```bash
+make dev-down
 ```
 
 ## Docker run (dev)
@@ -48,14 +64,15 @@ python scripts/session_snapshot_cli.py import \
 
 1. Pull latest code.
 2. Review `CHANGELOG.md` for interface/env changes.
-3. Rebuild/restart:
+3. If `apps/web` is present, run `make web-check`.
+4. Rebuild/restart:
 
 ```bash
 make down-prod
 make up-prod
 ```
 
-4. Verify readiness:
+5. Verify readiness:
 
 ```bash
 curl -sS http://127.0.0.1:8000/healthz

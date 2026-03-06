@@ -11,6 +11,14 @@ StateLock does not route models in this architecture.
 
 ## 1) Start StateLock
 
+Preferred full-stack path from repo root once local environments are set up:
+
+```bash
+make dev-up
+```
+
+Core-only Docker path:
+
 ```bash
 cp .env.example .env
 make up
@@ -20,6 +28,7 @@ API docs:
 
 - `http://127.0.0.1:8000/docs`
 - Console (local): `http://127.0.0.1:8000/app`
+- Unified UI (when using `make dev-up`): `http://127.0.0.1:3001`
 
 ## 2) Keep your existing LiteLLM aliases
 

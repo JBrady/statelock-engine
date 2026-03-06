@@ -18,6 +18,9 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+If you are running the whole repo from the root launcher, Observability is started
+for you on `127.0.0.1:8001` via `make dev-up`.
+
 Expected:
 - server starts without import/setup errors
 - startup logs include the resolved SQLite path

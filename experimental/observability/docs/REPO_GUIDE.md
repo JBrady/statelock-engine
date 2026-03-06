@@ -236,6 +236,11 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+Repo-root launcher note:
+
+- standalone Observability uses `127.0.0.1:8000`
+- repo-root `make dev-up` launches Observability on `127.0.0.1:8001`
+
 ### DB location
 Default SQLite path is `./data/statelock_v2.db`.
 

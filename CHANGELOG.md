@@ -6,14 +6,8 @@ The format is based on Keep a Changelog and this project follows SemVer.
 
 ## [Unreleased]
 
-### Added
-- Placeholder for new features.
-
 ### Changed
-- Placeholder for behavior changes.
-
-### Fixed
-- Placeholder for bug fixes.
+- Documentation updated to reflect the repo-root launcher, current track boundaries, current CI checks, and the canonical `statelock-engine` repo path.
 
 ## [0.3.0] - 2026-02-17
 
