@@ -1,7 +1,7 @@
 PYTHON ?= python3
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: setup setup-dev run test lint up down logs up-prod down-prod
+.PHONY: setup setup-dev run test lint web-check up down logs up-prod down-prod
 
 setup:
 	$(PIP) install --upgrade pip
@@ -19,6 +19,13 @@ test:
 
 lint:
 	ruff check .
+
+web-check:
+	@if [ ! -f apps/web/package-lock.json ]; then \
+		echo "apps/web not present; skipping web-check"; \
+	else \
+		cd apps/web && npm ci && npm run lint && npm run typecheck && npm run build; \
+	fi
 
 up:
 	cp -n .env.example .env || true
