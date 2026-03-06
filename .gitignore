@@ -36,3 +36,4 @@ docs/website-routing.md
 node_modules/
 .next/
 out/
+*.tsbuildinfo
