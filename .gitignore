@@ -32,6 +32,9 @@ docs/website-routing.md
 !.env.example
 .envrc
 
+# Local launcher runtime state
+.run/
+
 # Node / Next.js
 node_modules/
 .next/

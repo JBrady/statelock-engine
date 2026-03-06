@@ -1,7 +1,7 @@
 PYTHON ?= python3
 PIP ?= $(PYTHON) -m pip
 
-.PHONY: setup setup-dev run test lint web-check up down logs up-prod down-prod
+.PHONY: setup setup-dev run test lint web-check dev-up dev-down dev-status up down logs up-prod down-prod
 
 setup:
 	$(PIP) install --upgrade pip
@@ -26,6 +26,15 @@ web-check:
 	else \
 		cd apps/web && npm ci && npm run lint && npm run typecheck && npm run build; \
 	fi
+
+dev-up:
+	bash scripts/dev-up.sh
+
+dev-down:
+	bash scripts/dev-down.sh
+
+dev-status:
+	bash scripts/dev-status.sh
 
 up:
 	cp -n .env.example .env || true

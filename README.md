@@ -41,6 +41,36 @@ cp .env.example .env
 make run
 ```
 
+## Local Launcher (Recommended)
+
+Once the existing local environments are set up, you can run the full local stack
+from repo root with one command:
+
+```bash
+make dev-up
+```
+
+This starts:
+
+- Core on `http://127.0.0.1:8000`
+- Observability on `http://127.0.0.1:8001`
+- Next UI on `http://127.0.0.1:3001`
+
+Useful companion commands:
+
+```bash
+make dev-status
+make dev-down
+```
+
+Runtime artifacts are stored locally in `.run/`:
+
+- PID files: `.run/*.pid`
+- logs: `.run/logs/*.log`
+
+The launcher keeps the existing manual startup flow intact and only adds a simpler
+repo-root path for local developer/operator use.
+
 API docs:
 
 - `http://127.0.0.1:8000/docs`
