@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+import atexit
 import os
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
-os.environ.setdefault("STATELOCK_DB_URL", "sqlite:///./test_statelock.db")
+_TEST_DB_DIR = TemporaryDirectory(prefix="statelock-obs-tests-")
+atexit.register(_TEST_DB_DIR.cleanup)
+_TEST_DB_PATH = Path(_TEST_DB_DIR.name) / "test_statelock.db"
+
+os.environ.setdefault("STATELOCK_DB_URL", f"sqlite:///{_TEST_DB_PATH}")
 os.environ.setdefault("STATELOCK_API_KEY", "dev-key")
 
 import pytest
