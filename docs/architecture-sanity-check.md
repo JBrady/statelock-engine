@@ -111,16 +111,17 @@ Evidence:
 
 - [`docs/run-with-local-first-stack.md`](../docs/run-with-local-first-stack.md) lines 36-43:
   > Use a tool wrapper that calls StateLock:
+  >
   > - `memory.save`
   > - `memory.query`
   > - `memory.clear_session`
 - [`docs/run-with-local-first-stack.md`](../docs/run-with-local-first-stack.md) lines 66-75 show the current flow:
   1. Agent receives message
-  2. derive session id
-  3. call `memory.query`
-  4. build prompt
-  5. call LiteLLM
-  6. save facts with `memory.save`
+  1. derive session id
+  1. call `memory.query`
+  1. build prompt
+  1. call LiteLLM
+  1. save facts with `memory.save`
 - [`examples/openclaw-tooling/README.md`](../examples/openclaw-tooling/README.md) lines 3-11 defines the tool surface:
   - `memory.save`
   - `memory.query`
@@ -311,9 +312,9 @@ For OpenClaw, the lowest-risk first-class surfaces are probably:
    - `POST /memories/query`
    - `POST /memories/query-hybrid`
    - session snapshot/restore
-2. **Optionally reuse Observability working-context API experimentally**
+1. **Optionally reuse Observability working-context API experimentally**
    - `POST /v2/conversations/{conversation_id}/working_context`
-3. **Do not add `/gateway/*` yet**
+1. **Do not add `/gateway/*` yet**
 
 ### Endpoint naming fit
 
@@ -349,9 +350,9 @@ Evidence:
 ### Recommended first scope
 
 1. Define a **normalized conversation bundle schema** compatible with Observability import/export.
-2. Add importer/parser modules under **Observability** or a dedicated ingestion package adjacent to it.
-3. Keep raw archive storage additive and explicit.
-4. Only later decide whether distilled outputs should be projected into Core memory blocks.
+1. Add importer/parser modules under **Observability** or a dedicated ingestion package adjacent to it.
+1. Keep raw archive storage additive and explicit.
+1. Only later decide whether distilled outputs should be projected into Core memory blocks.
 
 ### Should raw archive store + distilled memory graph + context builder be treated as…
 
@@ -491,20 +492,20 @@ This is compatible with current Observability distillation, which already record
 1. **Docs/ADR first**
    - revise the proposed architecture so it respects the Core/Observability split
    - explicitly classify gateway, import, and crypto as separate concerns
-2. **Observability import schema**
+1. **Observability import schema**
    - formalize normalized conversation bundle format
    - keep this under `experimental/observability/`
-3. **Example importers**
+1. **Example importers**
    - implement one or two importers as experimental tooling
    - likely ChatGPT export + markdown first
-4. **Observability provenance/distillation linkage**
+1. **Observability provenance/distillation linkage**
    - make imported turns/spans/distilled memory relationships explicit
-5. **OpenClaw adapter examples**
+1. **OpenClaw adapter examples**
    - extend `examples/openclaw-tooling/`
    - optionally add example use of Observability working-context APIs
-6. **Evaluate promotion**
+1. **Evaluate promotion**
    - only after interfaces settle, decide whether to promote import/distillation pieces out of `experimental/`
-7. **Deferred security layer**
+1. **Deferred security layer**
    - design encrypted bundles / signing only after archive/export formats stabilize
 
 ## 11. File/Module Placement Recommendations
@@ -564,14 +565,13 @@ Good fit for:
 ## 12. Outstanding Questions or Decision Points
 
 1. Should imported conversation data remain purely Observability-owned, or should there be a later projection path into Core memory blocks?
-2. Is the long-term goal still to keep StateLock out of model routing entirely, or is there a deliberate future plan to make it a gateway/service mesh component?
-3. If chat importers are added, is the first desired output:
+1. Is the long-term goal still to keep StateLock out of model routing entirely, or is there a deliberate future plan to make it a gateway/service mesh component?
+1. If chat importers are added, is the first desired output:
    - replay/debugging,
    - memory distillation,
    - or both?
-4. Does raw archive storage need to be a filesystem tree, or can the first version rely on versioned portable bundles plus DB-backed normalized records?
-5. If crypto is added later, what is the first protected boundary:
+1. Does raw archive storage need to be a filesystem tree, or can the first version rely on versioned portable bundles plus DB-backed normalized records?
+1. If crypto is added later, what is the first protected boundary:
    - export bundle,
    - raw archive,
    - or full local DB?
-

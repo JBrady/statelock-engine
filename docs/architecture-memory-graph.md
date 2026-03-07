@@ -159,9 +159,9 @@ Recommended hybrid model:
 
 1. **Vector recall**
    - find semantically relevant blocks or entries
-2. **Graph expansion**
+1. **Graph expansion**
    - follow important links such as provenance, contradiction, episode, applies-to, or supersession
-3. **Selection/promotion logic**
+1. **Selection/promotion logic**
    - decide what enters working context, what is reinforced, and what should project into Core
 
 Repo grounding:
@@ -489,26 +489,26 @@ Practical interpretation:
 
 1. **Document the graph role**
    - this document
-2. **Keep graph ownership in Observability**
+1. **Keep graph ownership in Observability**
    - do not widen Core
-3. **Normalize existing implicit links**
+1. **Normalize existing implicit links**
    - provenance, contradictions, semantic neighbors, source refs
-4. **Add minimal node/edge schema**
+1. **Add minimal node/edge schema**
    - enough for provenance and relationship neighborhoods
-5. **Connect graph edges to PromotionArtifact / PromotionDecision / ProjectionRecord**
+1. **Connect graph edges to PromotionArtifact / PromotionDecision / ProjectionRecord**
    - only after promotion schemas stabilize
-6. **Use graph for better context expansion and promotion analysis**
+1. **Use graph for better context expansion and promotion analysis**
    - before considering any graph-native runtime features
-7. **Evaluate whether Core needs any selective read-through later**
+1. **Evaluate whether Core needs any selective read-through later**
    - default answer should remain “probably not”
 
 ## 15. Open Questions
 
 1. Should the first graph schema model only Observability-native nodes, with Core blocks represented only through `ProjectionRecord`, or should Core blocks become direct node refs from the start?
-2. Should graph edges be explicit first-class rows, or should the first version normalize only the existing span/memory link fields into a common read model?
-3. Which entity nodes are worth first-class promotion earliest: user, agent, project, tool, or decision?
-4. Should episodic clusters be explicit graph nodes, or remain inferred from conversation/thread neighborhoods at first?
-5. When contradiction exists between semantic/procedural memories, should the graph store both the contradiction edge and the supersession edge, or only one plus status?
+1. Should graph edges be explicit first-class rows, or should the first version normalize only the existing span/memory link fields into a common read model?
+1. Which entity nodes are worth first-class promotion earliest: user, agent, project, tool, or decision?
+1. Should episodic clusters be explicit graph nodes, or remain inferred from conversation/thread neighborhoods at first?
+1. When contradiction exists between semantic/procedural memories, should the graph store both the contradiction edge and the supersession edge, or only one plus status?
 
 ## Cross-Reference
 

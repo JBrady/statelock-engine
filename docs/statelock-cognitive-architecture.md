@@ -288,7 +288,7 @@ Repo evidence:
 There are two memory notions in the repo:
 
 1. **Core memory blocks** in Chroma
-2. **Observability memory entries** derived from conversations
+1. **Observability memory entries** derived from conversations
 
 That duality is why the continuity-layer framing matters.
 
@@ -392,7 +392,7 @@ That keeps the repo modular and lets more experimental reasoning-support feature
 This architecture is strong because it avoids two common failures:
 
 1. putting too much experimental reasoning logic into the stable runtime
-2. treating memory as only vector retrieval instead of continuity management
+1. treating memory as only vector retrieval instead of continuity management
 
 The repo already has the beginnings of a stronger pattern:
 
@@ -452,4 +452,3 @@ OpenClaw / agents / tools = integration edge
 Reasoning/model invocation stays outside StateLock.
 Continuity emerges from Core durability + Observability context intelligence.
 ```
-

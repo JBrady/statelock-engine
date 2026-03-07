@@ -423,11 +423,11 @@ That preserves the Core vs Observability split.
 Recommended early configurable items:
 
 1. `max_context_tokens`
-2. promotion aggressiveness level
-3. graph/provenance expansion depth
-4. telemetry retention level
-5. review strictness level
-6. cleanup/consolidation cadence
+1. promotion aggressiveness level
+1. graph/provenance expansion depth
+1. telemetry retention level
+1. review strictness level
+1. cleanup/consolidation cadence
 
 Why these first:
 
@@ -445,24 +445,24 @@ Avoid early overexposure of:
 
 1. **Document profile model first**
    - this document
-2. **Define 3-5 named presets**
+1. **Define 3-5 named presets**
    - no giant knob matrix
-3. **Attach presets to Observability continuity behavior**
+1. **Attach presets to Observability continuity behavior**
    - working-context build, promotion, review, retention
-4. **Add explicit logging of profile-driven decisions**
+1. **Add explicit logging of profile-driven decisions**
    - preserve transparency
-5. **Only then add more advanced cleanup/decay logic**
+1. **Only then add more advanced cleanup/decay logic**
    - after reinforcement/deprecation flows stabilize
-6. **Keep Core changes minimal**
+1. **Keep Core changes minimal**
    - ideally none beyond eventual consumption of projected semantic outputs
 
 ## 12. Open Questions
 
 1. Should profiles be global, per conversation, per session, or all three?
-2. Which dimensions belong in the user-visible preset vs internal tuning values?
-3. Should `Project-Focused` be a standalone preset or a scope overlay on top of `Balanced` / `Deep Continuity`?
-4. When privacy and continuity goals conflict, should the profile enforce hard caps or only stronger review thresholds?
-5. Should introspection/cleanup run opportunistically after active sessions, or on an explicit maintenance pass only?
+1. Which dimensions belong in the user-visible preset vs internal tuning values?
+1. Should `Project-Focused` be a standalone preset or a scope overlay on top of `Balanced` / `Deep Continuity`?
+1. When privacy and continuity goals conflict, should the profile enforce hard caps or only stronger review thresholds?
+1. Should introspection/cleanup run opportunistically after active sessions, or on an explicit maintenance pass only?
 
 ## Cross-Reference
 

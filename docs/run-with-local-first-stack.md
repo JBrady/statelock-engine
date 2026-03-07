@@ -75,12 +75,12 @@ Example:
 ## 4) Example flow
 
 1. Agent receives message.
-2. Derive session id: `{channel}:{thread_or_chat}:{user_or_agent}`.
-3. Call `memory.query` for session context.
-3. Build prompt with retrieved memories.
-4. Call LiteLLM model alias.
-5. Emit confidence hint (`confidence_low`) from model output.
-6. Save durable facts with `memory.save` based on policy triggers.
+1. Derive session id: `{channel}:{thread_or_chat}:{user_or_agent}`.
+1. Call `memory.query` for session context.
+1. Build prompt with retrieved memories.
+1. Call LiteLLM model alias.
+1. Emit confidence hint (`confidence_low`) from model output.
+1. Save durable facts with `memory.save` based on policy triggers.
 
 Automation contract:
 

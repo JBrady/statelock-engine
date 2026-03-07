@@ -63,9 +63,9 @@ python scripts/session_snapshot_cli.py import \
 ## Upgrade
 
 1. Pull latest code.
-2. Review `CHANGELOG.md` for interface/env changes.
-3. If `apps/web` is present, run `make web-check`.
-4. Rebuild/restart:
+1. Review `CHANGELOG.md` for interface/env changes.
+1. If `apps/web` is present, run `make web-check`.
+1. Rebuild/restart:
 
 ```bash
 make down-prod
@@ -82,7 +82,7 @@ curl -sS http://127.0.0.1:8000/readyz
 ## Rollback
 
 1. Checkout previous git tag/commit.
-2. Restart with previous image/config:
+1. Restart with previous image/config:
 
 ```bash
 make down-prod

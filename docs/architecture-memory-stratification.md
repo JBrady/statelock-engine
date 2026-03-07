@@ -5,7 +5,7 @@
 The proposed extension is **architecturally sound**, with two important clarifications:
 
 1. The **Experience Layer** fits naturally under `experimental/observability/`, not Core.
-2. **Memory stratification** is a strong conceptual model for StateLock, but several layers are still conceptual or only partially represented in the repo today.
+1. **Memory stratification** is a strong conceptual model for StateLock, but several layers are still conceptual or only partially represented in the repo today.
 
 The repo already supports the underlying shape:
 
@@ -309,12 +309,12 @@ The currently bound conversation LLM can help propose interpretations, but it sh
 Why:
 
 1. The runtime LLM is optimized for answering the current prompt, not for long-horizon storage decisions.
-2. The repo already uses deterministic and inspectable logic in key places:
+1. The repo already uses deterministic and inspectable logic in key places:
    - save triggers in [`app/services/automation_policy.py`](../app/services/automation_policy.py#L31)
    - working-context assembly in [`experimental/observability/app/context_builder/builder.py`](../experimental/observability/app/context_builder/builder.py#L135)
    - telemetry metrics in [`experimental/observability/app/services/telemetry_service.py`](../experimental/observability/app/services/telemetry_service.py#L45)
    - governance remediation in [`experimental/observability/app/governance/actions.py`](../experimental/observability/app/governance/actions.py#L47)
-3. Provenance and traceability matter. A memory decision should be auditable against turns, spans, telemetry, and policies.
+1. Provenance and traceability matter. A memory decision should be auditable against turns, spans, telemetry, and policies.
 
 So the correct architectural principle is:
 
@@ -328,13 +328,13 @@ The repo-aligned decision pipeline is:
 1. **Deterministic rules**
    - obvious triggers, bans, trust boundaries, explicit commands, policy rules
    - existing precedent: save trigger patterns in [`app/services/automation_policy.py`](../app/services/automation_policy.py#L9)
-2. **Cheap classifier / heuristic stage**
+1. **Cheap classifier / heuristic stage**
    - low-cost scoring for semantic vs episodic vs procedural tendency
    - current precedent: thread inference, span scoring, recency/trust heuristics in [`experimental/observability/app/context_builder/builder.py`](../experimental/observability/app/context_builder/builder.py#L58)
-3. **Stronger distillation pass**
+1. **Stronger distillation pass**
    - higher-cost structured extraction and contradiction/redundancy checks
    - current precedent: distillation critic pass described in [`experimental/observability/statelock-v2-mvp.yaml`](../experimental/observability/statelock-v2-mvp.yaml#L330)
-4. **Optional human confirmation for major promotions**
+1. **Optional human confirmation for major promotions**
    - use for irreversible or high-impact promotions such as durable architectural policies, user identity changes, or cross-project workflow canon
 
 This preserves safety and auditability without blocking normal operation.
