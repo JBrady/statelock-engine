@@ -189,7 +189,6 @@ When reporting findings:
 For project context also consult:
 
 - `docs/rehydration-repo-snapshot.md`
-- `docs/session-delta.md`
 - `docs/rehydration-template.md`
 
 ## Architecture Governance Files
