@@ -1,0 +1,112 @@
+version: 1
+contract_name: statelock-architecture-contract
+status: draft
+
+architecture:
+  model: two-track
+  repo_truth_rule:
+    - Runtime code and current repo layout are the source of truth for implemented behavior.
+    - Architecture docs may describe intended direction and should not be treated as proof of implementation.
+
+tracks:
+  core:
+    purpose: stable durable-memory sidecar runtime
+    primary_paths:
+      - main.py
+      - app/
+    owns:
+      - memory block storage and retrieval
+      - /memories APIs
+      - /stats, /sessions, and /tags insights APIs
+      - health and readiness endpoints
+      - snapshot and restore flows for session-scoped memory
+      - chroma-backed persistence
+    forbidden_concerns:
+      - transcript ingestion
+      - conversation and turn storage
+      - working-context construction
+      - promotion engine ownership
+      - graph database ownership
+      - model routing
+      - rich governance and telemetry logic
+
+  observability:
+    purpose: richer continuity, traceability, and learning subsystem
+    primary_paths:
+      - experimental/observability/
+    owns:
+      - conversations, turns, and spans
+      - working-context construction
+      - telemetry snapshots and explainability
+      - governance actions and auditability
+      - conversation import and export
+      - memory distillation and learned memory records
+      - provenance, contradiction, and quarantine signals
+    expected_concerns:
+      - promotion-oriented artifacts and evidence
+      - relationship and graph-like modeling before any Core projection
+      - policy and learning controls before any Core-side narrowing
+
+projection_boundary:
+  direction: observability_to_core
+  rule: only reduced semantic memory should cross into Core
+  boundary_object:
+    name: ProjectionRecord
+    owner_track: observability
+    status: intended_boundary_object_not_yet_implemented_in_runtime
+    purpose:
+      - link an Observability-owned promotion decision or learned record to the Core memory block that was created or updated
+      - preserve projection provenance without making Core own rich continuity state
+  core_projection_shape:
+    compatible_with:
+      - app/models/schemas.py:MemoryUpsert
+      - app/models/schemas.py:MemoryCreate
+  disallowed_crossings:
+    - raw conversation transcripts into Core as a primary storage model
+    - rich promotion artifacts stored as first-class Core records
+    - graph edges owned by Core
+    - model-router or gateway responsibilities attached to Core
+
+local_stack:
+  ports:
+    core: 8000
+    observability: 8001
+    web: 3001
+  urls:
+    core: http://127.0.0.1:8000
+    observability: http://127.0.0.1:8001
+    web: http://127.0.0.1:3001
+
+lifecycle:
+  recommended_commands:
+    up: make dev-up
+    down: make dev-down
+    status: make dev-status
+    restart: make dev-restart
+    logs: make dev-logs
+    open: make dev-open
+  behavior_contract:
+    - dev-up should be idempotent and ensure the local stack is running.
+    - dev-status should report overall stack state and per-service health with URLs.
+    - stale pid files should be repaired safely by the launcher.
+    - port conflicts should be reported clearly instead of being treated as generic startup failures.
+
+repo_rules:
+  - path: app/
+    sensitivity: high
+    rule: keep Core narrow and memory-oriented; do not add conversation, routing, graph, or promotion-engine ownership here without explicit architecture change.
+  - path: experimental/observability/
+    sensitivity: high
+    rule: place richer continuity, telemetry, governance, distillation, and relationship logic here first.
+  - path: apps/web/
+    sensitivity: high
+    rule: preserve track visibility in the UI and avoid implying backend capabilities that do not exist.
+  - path: apps/web/lib/proxy.ts
+    sensitivity: high
+    rule: maintain explicit Core vs Observability upstream separation.
+  - path: scripts/
+    sensitivity: medium
+    rule: launcher behavior should stay humane and idempotent without redefining architecture boundaries.
+  - path: docs/architecture-*.md
+    sensitivity: medium
+    rule: keep direction aligned with code reality and mark future concepts clearly when not implemented.
