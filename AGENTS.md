@@ -184,12 +184,31 @@ When reporting findings:
 - reference functions or sections
 - prefer evidence over assumptions
 
-## REHYDRATION FILES
+## SESSION CONTEXT FILES
 
-For project context also consult:
+Session context files are not architecture authority.
 
-- `docs/rehydration-repo-snapshot.md`
-- `docs/rehydration-template.md`
+Use them only to rehydrate prior session state, recent focus, and handoff context.
+
+Do not treat them as the source of truth over runtime code or architecture docs.
+
+Session context lives under:
+
+- `docs/session_context/rehydration-repo-snapshot.md`
+- `docs/session_context/rehydration-template.md`
+- `docs/session_context/session-delta.md`
+
+## BRAINSTORMING / REVIEW FILES
+
+Brainstorming and review notes are exploratory unless explicitly promoted elsewhere.
+
+These files may contain useful ideas, but they are not canonical architecture direction by default.
+
+Treat them as discussion material that must be checked against the repo and architecture governance docs.
+
+Brainstorming material currently lives under:
+
+- `docs/brainstorming/project_review/`
 
 ## Architecture Governance Files
 
@@ -197,8 +216,8 @@ Important architecture references:
 
 - `docs/architecture-contract.yaml`
 - `docs/architecture-contract-audit.md`
-- `docs/rehydration-template.md`
-- `docs/rehydration-repo-snapshot.md`
-- `docs/session-delta.md`
+- `docs/architecture-tracks.md`
+- `docs/architecture-continuity-layer.md`
+- `docs/statelock-cognitive-architecture.md`
 
 When making architectural changes, consult these files first.
