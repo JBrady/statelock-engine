@@ -3,5 +3,5 @@ uvicorn[standard]==0.30.6
 chromadb==0.5.11
 sentence-transformers==3.0.1
 pydantic-settings==2.4.0
-python-dotenv==1.0.1
+python-dotenv==1.2.2
 requests==2.32.4
